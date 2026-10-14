@@ -8,12 +8,13 @@ pub mod picker;
 pub mod settings;
 pub mod widgets;
 
-use oc_grid::{CellRect, Flags, Frame, Layer, PxRect, Rgba, Style, elide_left, elide_right};
+use oc_grid::{CellRect, Flags, Frame, ImagePlacement, Layer, PxRect, Rgba, Style, elide_left, elide_right};
 
 use crate::app::{App, Modal, Tab};
 use crate::download::{Download, Status};
 use crate::engine::UNKNOWN_END;
 use crate::format;
+use crate::icons::{self, Icon};
 use crate::input::{KeyEvent, MouseEvent};
 use crate::settings::Traffic;
 use crate::theme::mix;
@@ -167,7 +168,7 @@ fn draw_list(app: &App, f: &mut Frame, l: &Layout, ctx: &DrawCtx) {
     let speed_x = state_x.saturating_sub(speed_w + 1);
     let prog_x = speed_x.saturating_sub(prog_w + if prog_w > 0 { 1 } else { 0 });
     let size_x = prog_x.saturating_sub(size_w + 1);
-    let name_x = l.header.col + 3;
+    let name_x = l.header.col + 4;
     put(f, name_x, l.header.row, "Name", hs, size_x.saturating_sub(name_x));
     put_right(f, size_x, l.header.row, size_w, "Size", hs);
     if prog_w > 0 {
@@ -212,8 +213,8 @@ fn draw_list(app: &App, f: &mut Frame, l: &Layout, ctx: &DrawCtx) {
         let bg = if is_cursor { c.cursor_bg } else { c.surface };
         let pick = |normal: Rgba| if is_cursor { c.cursor_fg } else { normal };
         fill(f, CellRect::new(list.col, row, list.cols, 1), bg);
-        let (glyph, gc) = status_glyph(d, c);
-        put(f, list.col + 1, row, glyph, Style::new(pick(gc), bg), 1);
+        let (icon, ic) = status_icon(d, c);
+        draw_icon(f, CellRect::new(list.col + 1, row, 2, 1), icon, pick(ic), ctx);
         let name_fg = if marked { c.marked } else if d.status == Status::Failed { c.error } else { c.foreground };
         let mut style = Style::new(pick(name_fg), bg);
         if marked {
@@ -250,15 +251,23 @@ fn put_right(f: &mut Frame, x: u16, row: u16, w: u16, text: &str, style: Style) 
     put(f, x + w.saturating_sub(tw), row, &t, style, w);
 }
 
-fn status_glyph(d: &Download, c: &crate::theme::Colors) -> (&'static str, Rgba) {
+fn status_icon(d: &Download, c: &crate::theme::Colors) -> (Icon, Rgba) {
     match d.status {
-        Status::Running => ("↓", c.success),
-        Status::Queued => ("·", c.muted),
-        Status::Paused => ("‖", c.warning),
-        Status::Done if d.verified == Some(false) => ("!", c.error),
-        Status::Done => ("✓", c.success),
-        Status::Failed => ("✗", c.error),
+        Status::Running => (Icon::Running, c.accent),
+        Status::Queued => (Icon::Queued, c.muted),
+        Status::Paused => (Icon::Paused, c.warning),
+        Status::Done if d.verified == Some(false) => (Icon::Damaged, c.error),
+        Status::Done => (Icon::Done, c.success),
+        Status::Failed => (Icon::Failed, c.error),
     }
+}
+
+/// A status icon, centered in `r`, a little smaller than a row.
+pub fn draw_icon(f: &mut Frame, r: CellRect, icon: Icon, color: Rgba, ctx: &DrawCtx) {
+    let area = widgets::px(r, ctx);
+    let size = (area.h * 0.78).min(area.w).round().max(6.0);
+    let dest = PxRect::new((area.x + (area.w - size) / 2.0).round(), (area.y + (area.h - size) / 2.0).round(), size, size);
+    f.add_image(ImagePlacement::new(icons::image_id(icon, size as u32, color), dest));
 }
 
 /// The last column: time left, or what the download is doing.
@@ -272,6 +281,7 @@ fn state_text(d: &Download, c: &crate::theme::Colors) -> (String, Rgba) {
         },
         Status::Queued => ("Queued".into(), c.muted),
         Status::Paused => ("Paused".into(), c.warning),
+        Status::Done if d.verified == Some(false) => ("Damaged".into(), c.error),
         Status::Done => ("Done".into(), c.success),
         Status::Failed => ("Failed".into(), c.error),
     }

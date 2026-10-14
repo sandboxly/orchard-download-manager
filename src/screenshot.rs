@@ -101,6 +101,12 @@ pub fn run(args: &[String]) -> ExitCode {
     }
     let mut frame = Frame::new(o.size.0, o.size.1, app.theme.colors.background);
     ui::draw(&app, &mut frame);
+    let renderer = r.renderer();
+    orchard_download_manager::icons::upload_missing(&frame, &mut Default::default(), |id, w, h, rgba| {
+        if let Err(e) = renderer.set_image(id, w, h, rgba) {
+            eprintln!("icon: {e}");
+        }
+    });
     let saved = r.render(&frame).map_err(|e| e.to_string()).and_then(|img| save(&img, &out));
     match saved {
         Ok(()) => ExitCode::SUCCESS,
@@ -156,6 +162,10 @@ fn demo(app: &mut App) {
                 if i == 2 {
                     d.checksum = Expected::parse("sha256:9f2a6c1e0b7d4c3a8e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5");
                     d.verified = Some(true);
+                }
+                if i == 5 {
+                    d.checksum = Expected::parse("900150983cd24fb0d6963f7d28e17f72");
+                    d.verified = Some(false);
                 }
             }
             Status::Failed => {

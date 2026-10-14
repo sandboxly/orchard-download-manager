@@ -37,6 +37,8 @@ struct Win {
     font: FontConfig,
     title: String,
     focused: bool,
+    /// The status icons the renderer has.
+    icons: std::collections::HashSet<oc_grid::ImageId>,
 }
 
 struct Platform {
@@ -118,6 +120,12 @@ impl Platform {
             w.title = title;
         }
         ui::draw(&self.app, &mut w.frame);
+        let r = w.gpu.renderer_mut();
+        orchard_download_manager::icons::upload_missing(&w.frame, &mut w.icons, |id, width, height, rgba| {
+            if let Err(e) = r.set_image(id, width, height, rgba) {
+                log::warn!("icon: {e}");
+            }
+        });
         match w.gpu.render(&w.frame) {
             Ok(Rendered::Retry) => w.window.request_redraw(),
             Ok(_) => {}
@@ -203,7 +211,7 @@ impl ApplicationHandler<UserEvent> for Platform {
         };
         let (cols, rows) = gpu.grid_size();
         let frame = Frame::new(cols, rows, self.app.theme.colors.background);
-        self.win = Some(Win { window, gpu, frame, font, title: String::new(), focused: true });
+        self.win = Some(Win { window, gpu, frame, font, title: String::new(), focused: true, icons: Default::default() });
         self.sync_size();
         let startup = std::mem::take(&mut self.startup);
         if !startup.is_empty() {
@@ -259,11 +267,13 @@ impl ApplicationHandler<UserEvent> for Platform {
                 self.sync_size();
             }
             WindowEvent::ThemeChanged(t) => self.app.set_system_dark(t == Theme::Dark),
+            // Shown again: frames drawn while it was hidden were dropped
+            // (on macOS also the very first one).
+            WindowEvent::Occluded(false) => {}
             WindowEvent::Focused(f) => {
                 if let Some(w) = &mut self.win {
                     w.focused = f;
                 }
-                input = false;
             }
             WindowEvent::ModifiersChanged(m) => {
                 self.mods = m.state();

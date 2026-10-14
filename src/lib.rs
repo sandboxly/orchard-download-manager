@@ -7,6 +7,7 @@ pub mod clipboard;
 pub mod download;
 pub mod engine;
 pub mod format;
+pub mod icons;
 pub mod input;
 pub mod ipc;
 pub mod links;
