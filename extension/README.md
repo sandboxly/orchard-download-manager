@@ -52,7 +52,7 @@ length in native byte order:
 
 | Extension sends | App answers |
 | --- | --- |
-| `{"type": "ping"}` | `{"ok": true, "version": "0.1.0"}` |
+| `{"type": "ping"}` | `{"ok": true, "version": "1.0.0"}` |
 | `{"type": "add", "userAgent": "…", "items": [{"url", "referrer", "cookies", "filename"}]}` | `{"ok": true}` or `{"ok": false, "error": "…"}` |
 
 The helper hands the links to the running app through the same local
