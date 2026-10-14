@@ -181,8 +181,8 @@ fn demo(app: &mut App) {
                 let mut run = Run::new(shared);
                 run.speed = speed * MB as f64;
                 d.run = Some(run);
-                // A plausible minute of speed.
-                d.history = (0..120)
+                // A plausible speed graph, full width.
+                d.history = (0..orchard_download_manager::download::HISTORY)
                     .map(|k| {
                         let t = k as f32;
                         let ramp = (t / 12.0).min(1.0);

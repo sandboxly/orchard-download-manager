@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orchard Download Manager: fast, resumable downloads on your schedule</title>
+<meta name="description" content="Orchard Download Manager splits big downloads into parts, resumes them after a broken connection and runs them on your schedule. No account, no ads. Free and open source for macOS, Windows and Linux.">
+<meta name="theme-color" content="#1e1f1c">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sandboxly.github.io/orchard-download-manager/">
+<meta property="og:title" content="Orchard Download Manager: fast, resumable downloads on your schedule">
+<meta property="og:description" content="Orchard Download Manager splits big downloads into parts, resumes them after a broken connection and runs them on your schedule. No account, no ads. Free and open source for macOS, Windows and Linux.">
+<meta property="og:image" content="https://sandboxly.github.io/orchard-download-manager/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="style.css">
+<script src="main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="icon.png" alt="">Orchard Download Manager</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#keys">Keys</a>
+      <a href="https://github.com/sandboxly/orchard-download-manager"><i class="ph ph-github-logo" aria-hidden="true"></i><span class="gh-label">GitHub</span></a>
+      <a href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<a class="support" href="https://ko-fi.com/sandboxly"><i class="ph ph-coffee" aria-hidden="true"></i>Enjoy Orchard Download Manager? <span>Buy me a coffee!</span></a>
+
+<main id="main">
+  <section class="hero wrap">
+    <div class="hero-tags"><p class="kicker">Version 0.1</p><span class="tag">Written in Rust</span></div>
+    <h1>Big downloads, fast and safe to the last byte</h1>
+    <p class="lede">Orchard Download Manager splits a download into parts that load at the same time, picks up where it stopped after a broken connection, and runs your queue when it suits you. No account, no ads, no tracking.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#download" data-hero-dl><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download</span></a>
+      <span class="mute">Free and open source · <a href="#download">Other platforms</a></span>
+    </div>
+
+    <div class="stage">
+      <button class="frame shot" type="button" data-name="Downloads" aria-label="Enlarge screenshot: the download list">
+        <span class="chip">Downloads</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+        <img src="screenshots/hero.webp" alt="The download list with running, paused, queued and finished downloads, and details for the selected one: its parts and a speed graph" width="2040" height="1188">
+      </button>
+    </div>
+  </section>
+
+  <div id="features" class="features wrap">
+    <section class="why" aria-labelledby="f-why">
+      <h2 id="f-why">Downloads that don't start over</h2>
+      <p>A browser loads a file over one connection, and when that connection breaks near the end, you often start again from zero. Orchard Download Manager keeps every byte it has, retries on its own and finishes the file.</p>
+      <p>It opens up to 32 connections per file, so servers that limit each connection still fill your line.</p>
+      <ul class="why-list" aria-label="What you get">
+        <li><i class="ph ph-check" aria-hidden="true"></i>Resume after a broken connection</li>
+        <li><i class="ph ph-check" aria-hidden="true"></i>Several connections per file</li>
+        <li><i class="ph ph-check" aria-hidden="true"></i>No account or sign-in</li>
+        <li><i class="ph ph-check" aria-hidden="true"></i>Nothing leaves your computer</li>
+      </ul>
+    </section>
+
+    <section class="formats" aria-labelledby="f-formats">
+      <h2 id="f-formats">Sorted as it lands</h2>
+      <p>Each download goes to the folder for its kind, if you like: videos with videos, archives with archives. The list filters by the same kinds.</p>
+      <ul class="fmt-list" aria-label="Kinds of files">
+        <li class="frame">Video</li>
+        <li class="frame">Music</li>
+        <li class="frame">Documents</li>
+        <li class="frame">Archives</li>
+        <li class="frame">Programs</li>
+        <li class="frame">Images</li>
+      </ul>
+    </section>
+
+    <section class="feature" aria-labelledby="f-add">
+      <div>
+        <h2 id="f-add">Paste a link and go</h2>
+        <p>Copy a link anywhere and the app offers to download it. The Add dialog checks the link first and shows the file's name and size, and whether it can resume.</p>
+        <p>Paste a whole page of links at once, or a pattern like <code>lecture-[01-12].mp4</code> for a numbered series.</p>
+      </div>
+      <button class="frame shot" type="button" data-name="Add download" aria-label="Enlarge screenshot: the Add dialog">
+        <span class="chip">Add download</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+        <img src="screenshots/add.webp" alt="The Add dialog showing a checked link with the file name, size and that it can resume" loading="lazy" width="2040" height="1188">
+      </button>
+    </section>
+
+    <section class="feature flip" aria-labelledby="f-speed">
+      <div>
+        <h2 id="f-speed">Keep the line free for everything else</h2>
+        <p>Three speed modes, low, medium and high, each with its own limit. Press <kbd>F7</kbd> to switch between them while you work, call or stream.</p>
+        <p>In Settings (<kbd>⌘,</kbd> or <kbd>F9</kbd>) you set how many downloads run at once, the connections per file, retries, a proxy and much more. Changes take effect at once.</p>
+      </div>
+      <button class="frame shot" type="button" data-name="Speed settings" aria-label="Enlarge screenshot: speed settings">
+        <span class="chip">Speed settings</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+        <img src="screenshots/speed.webp" alt="The Settings dialog on the Speed page with a limit for each speed mode" loading="lazy" width="2040" height="1188">
+      </button>
+    </section>
+
+    <section class="tools" aria-labelledby="f-tools">
+      <h2 id="f-tools">What sets it apart</h2>
+      <div class="tool-grid">
+        <article class="frame tool">
+          <i class="ph ph-arrows-split" aria-hidden="true"></i>
+          <h3>Parts that help each other</h3>
+          <p>When one connection finishes its part, it takes over half of the biggest part still loading. No connection sits idle until the file is done.</p>
+        </article>
+        <article class="frame tool">
+          <i class="ph ph-calendar-check" aria-hidden="true"></i>
+          <h3>Download on a schedule</h3>
+          <p>Let the queue run at night or on the days you choose. When everything is done, the app can quit or put the computer to sleep.</p>
+        </article>
+        <article class="frame tool">
+          <i class="ph ph-shield-check" aria-hidden="true"></i>
+          <h3>Checksums built in</h3>
+          <p>Paste an SHA-256, SHA-1 or MD5 sum and the file is checked when it's done. A file that doesn't match is marked as damaged.</p>
+        </article>
+        <article class="frame tool">
+          <i class="ph ph-browser" aria-hidden="true"></i>
+          <h3>Downloads from the browser</h3>
+          <p>The browser extension hands downloads over to the app, with the sign-in they need. Right-click a link to send it, or every link on a page.</p>
+        </article>
+        <article class="frame tool">
+          <i class="ph ph-list-numbers" aria-hidden="true"></i>
+          <h3>A queue you control</h3>
+          <p>Choose how many downloads run at once and reorder the rest with <kbd>⌥↑</kbd> and <kbd>⌥↓</kbd>. The next one starts when a slot is free.</p>
+        </article>
+        <article class="frame tool">
+          <i class="ph ph-moon" aria-hidden="true"></i>
+          <h3>Stays awake while it works</h3>
+          <p>The computer doesn't fall asleep in the middle of a download, and goes back to its usual habits when the queue is empty.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="keys" class="keys" aria-labelledby="f-keys">
+      <div>
+        <h2 id="f-keys">Keys</h2>
+        <p>Every action has a key. The key bar shows the common ones, and <kbd>F1</kbd> lists them all. The mouse works too.</p>
+        <p class="note">On Windows and Linux, use Ctrl instead of ⌘.</p>
+      </div>
+      <div class="fbar" aria-hidden="true">
+        <span><b>F1</b> Help</span><span><b>F2</b> Add</span><span><b>F3</b> Open</span><span><b>F4</b> Folder</span><span><b>F5</b> Start</span><span><b>F6</b> Pause</span><span><b>F7</b> Speed</span><span><b>F8</b> Remove</span><span><b>F9</b> Settings</span><span><b>F10</b> Quit</span>
+      </div>
+      <dl class="frame key-table">
+        <span class="chip">Keys</span>
+        <div><dt>F2 or ⌘N</dt><dd>Add a download</dd></div>
+        <div><dt>⌘V</dt><dd>Add the links on the clipboard</dd></div>
+        <div><dt>Space</dt><dd>Start or pause</dd></div>
+        <div><dt>⇧F5 / ⇧F6</dt><dd>Start all / pause all</dd></div>
+        <div><dt>F3 / F4</dt><dd>Open the file / its folder</dd></div>
+        <div><dt>F7</dt><dd>Speed mode: low, medium, high</dd></div>
+        <div><dt>F8</dt><dd>Remove (⇧F8: with the file)</dd></div>
+        <div><dt>R</dt><dd>Download again</dd></div>
+        <div><dt>⌥↑ ⌥↓</dt><dd>Move in the queue</dd></div>
+        <div><dt>1 – 5</dt><dd>All, active, paused, done, failed</dd></div>
+        <div><dt>C</dt><dd>Filter by kind of file</dd></div>
+        <div><dt>/ or ⌘F</dt><dd>Search the list</dd></div>
+        <div><dt>E / H</dt><dd>Properties / checksum</dd></div>
+        <div><dt>I</dt><dd>Show or hide details</dd></div>
+        <div><dt>⌘C</dt><dd>Copy the link</dd></div>
+        <div><dt>⌘, or F9</dt><dd>Settings</dd></div>
+        <div><dt>⌘+ ⌘− ⌘0</dt><dd>Font size</dd></div>
+      </dl>
+    </section>
+
+    <section class="gallery" aria-labelledby="f-gallery">
+      <h2 id="f-gallery">Screenshots</h2>
+      <div class="gallery-grid">
+        <figure class="wide">
+          <button class="frame shot" type="button" data-name="Numbered series" aria-label="Enlarge screenshot: a numbered series of links">
+            <span class="chip">Numbered series</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+            <img src="screenshots/batch.webp" alt="The Add dialog turning one pattern into twelve downloads" loading="lazy" width="2040" height="1188">
+          </button>
+          <figcaption>One pattern, twelve downloads</figcaption>
+        </figure>
+        <figure class="tall">
+          <button class="frame shot" type="button" data-name="Narrow window" aria-label="Enlarge screenshot: narrow window">
+            <span class="chip">Narrow window</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+            <img src="screenshots/narrow.webp" alt="The download list in a tall, narrow window" loading="lazy" width="1088" height="1452">
+          </button>
+          <figcaption>The layout adapts to a tall, narrow window</figcaption>
+        </figure>
+        <figure>
+          <button class="frame shot" type="button" data-name="Checked file" aria-label="Enlarge screenshot: a checked file">
+            <span class="chip">Checked file</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+            <img src="screenshots/checksum.webp" alt="A finished download whose checksum matches" loading="lazy" width="2040" height="1188">
+          </button>
+          <figcaption>The checksum matches, so the file is complete</figcaption>
+        </figure>
+        <figure>
+          <button class="frame shot" type="button" data-name="Light scheme" aria-label="Enlarge screenshot: light color scheme">
+            <span class="chip">Light scheme</span><span class="zoom ph ph-arrows-out" aria-hidden="true"></span>
+            <img src="screenshots/light.webp" alt="The download list in a light color scheme" loading="lazy" width="2040" height="1188">
+          </button>
+          <figcaption>Color schemes shared with the other Orchard apps</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="frame family" aria-labelledby="f-family">
+      <img src="commander-icon.png" alt="" width="64" height="64">
+      <div>
+        <h2 id="f-family">Part of the Orchard family</h2>
+        <p>Orchard Commander is a two-panel file manager and Orchard Music Player plays the music you own. All three share the same look and color schemes, and all are free and open source.</p>
+      </div>
+      <div class="family-links">
+        <a class="btn" href="https://sandboxly.github.io/orchard-commander/"><span>Orchard Commander</span><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+        <a class="btn" href="https://sandboxly.github.io/orchard-music-player/"><span>Orchard Music Player</span><i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+      </div>
+    </section>
+  </div>
+
+  <section id="download" class="download" aria-labelledby="dl-title">
+    <div class="wrap">
+      <p class="kicker">Version 0.1.0</p>
+      <h2 id="dl-title">Download Orchard Download Manager</h2>
+      <div class="dl-grid">
+        <div class="frame dl" data-os="macos" data-label="macOS">
+          <span class="chip">macOS</span><span class="badge">Your system</span>
+          <i class="ph ph-apple-logo" aria-hidden="true"></i>
+          <p class="req">Apple silicon · macOS 12 or later</p>
+          <div class="actions">
+            <a class="btn btn-primary" data-primary href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-macOS.dmg"><span>Download for macOS</span><i class="ph ph-download-simple" aria-hidden="true"></i></a>
+            <span class="file">Orchard-Download-Manager-macOS.dmg</span>
+            <div class="cmd"><code id="brew">brew install --cask sandboxly/tap/orchard-download-manager</code><button type="button" data-copy="brew" aria-label="Copy command"><i class="ph ph-copy" aria-hidden="true"></i></button></div>
+          </div>
+        </div>
+        <div class="frame dl" data-os="windows" data-label="Windows">
+          <span class="chip">Windows</span><span class="badge">Your system</span>
+          <i class="ph ph-windows-logo" aria-hidden="true"></i>
+          <p class="req">Windows 10 and 11 · 64-bit</p>
+          <div class="actions">
+            <a class="btn btn-primary" data-primary href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Setup.exe"><span>Download for Windows</span><i class="ph ph-download-simple" aria-hidden="true"></i></a>
+            <span class="file">Orchard-Download-Manager-Setup.exe</span>
+            <div class="alts"><span>Also:</span><a href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Windows.zip">Portable .zip</a></div>
+          </div>
+        </div>
+        <div class="frame dl" data-os="linux" data-label="Linux">
+          <span class="chip">Linux</span><span class="badge">Your system</span>
+          <i class="ph ph-linux-logo" aria-hidden="true"></i>
+          <p class="req">x86-64 · Ubuntu 22.04, Debian 12, Fedora 42 or newer</p>
+          <div class="actions">
+            <a class="btn btn-primary" data-primary href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Linux-x86_64.AppImage"><span>Download for Linux</span><i class="ph ph-download-simple" aria-hidden="true"></i></a>
+            <span class="file">Orchard-Download-Manager-Linux-x86_64.AppImage</span>
+            <div class="alts"><span>Also:</span><a href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Linux-x86_64.deb">.deb</a><a href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Linux-x86_64.rpm">.rpm</a><a href="https://github.com/sandboxly/orchard-download-manager/releases/latest/download/Orchard-Download-Manager-Linux.tar.gz">.tar.gz</a></div>
+          </div>
+        </div>
+      </div>
+      <p class="dl-note">Release notes and older versions are on <a href="https://github.com/sandboxly/orchard-download-manager/releases">GitHub</a>. To get started, copy a link or press <kbd>F2</kbd>.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span><img src="icon.png" alt="" width="18" height="18">Orchard Download Manager · MIT License</span>
+    <a href="https://sandboxly.github.io/orchard-commander/">Orchard Commander</a>
+    <a href="https://sandboxly.github.io/orchard-music-player/">Orchard Music Player</a>
+    <a href="https://github.com/sandboxly/orchard-download-manager">Source code</a>
+    <a href="https://github.com/sandboxly/orchard-download-manager/issues">Report a problem</a>
+  </div>
+</footer>
+
+<dialog id="lightbox" class="lightbox" aria-label="Screenshot">
+  <span class="chip"></span>
+  <button class="close" type="button" aria-label="Close">Esc ✕</button>
+  <img alt="">
+</dialog>
+</body>
+</html>
