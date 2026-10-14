@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Orchard Download Manager</title>
+<meta name="description" content="What Orchard Download Manager and its browser extension do with your data: everything stays on your computer.">
+<meta name="theme-color" content="#1e1f1c">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="icon.png" alt="">Orchard Download Manager</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="./#features">Features</a>
+      <a href="./#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap legal">
+  <p class="kicker">Updated October 14, 2026</p>
+  <h1>Privacy</h1>
+  <p class="lede">Orchard Download Manager and its browser extension don't collect anything about you. There are no accounts, no analytics and no servers of ours: what you download, and how, stays on your computer.</p>
+
+  <h2>The app</h2>
+  <ul>
+    <li>It connects only to the addresses you download from, and to a proxy if you set one.</li>
+    <li>Your download list and settings are files in the app's settings folder on your computer. The list can hold sign-in cookies for downloads that need them, so only your user account can read it.</li>
+    <li>With clipboard watching on, the app looks at copied text for links. The text never leaves your computer.</li>
+  </ul>
+
+  <h2>The browser extension</h2>
+  <p>The extension hands downloads from the browser over to the app installed on the same computer. It talks only to that app, through the browser's built-in channel for local apps, and never over the internet.</p>
+  <ul>
+    <li><strong>Downloads:</strong> when the browser starts a download, the extension reads its address, file name and size to decide whether the app takes it, and cancels the browser's copy once the app has it.</li>
+    <li><strong>Cookies:</strong> for each link it hands over, the extension reads the browser's cookies for that address and sends them, with the referring page and the browser's user agent, to the app. The app uses them only to download that file from that site, so downloads behind a sign-in work.</li>
+    <li><strong>Pages:</strong> when you choose "Download all links" from the right-click menu, the extension reads the links on that page or selection. It reads nothing else on any page.</li>
+    <li><strong>Settings:</strong> the extension's own settings (on or off, sites and file types to skip) are kept in the browser's storage and sync with your browser account if you've turned that on.</li>
+  </ul>
+  <p>Nothing the extension reads is sold, shared or sent anywhere except to the app on your computer, and nothing is used for advertising or to work out who you are.</p>
+
+  <h2>Questions</h2>
+  <p>The source code of the app and the extension is <a href="https://github.com/sandboxly/orchard-download-manager">public</a>, so you can check all of this. Ask questions or report a problem on <a href="https://github.com/sandboxly/orchard-download-manager/issues">the issue tracker</a>.</p>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span><img src="icon.png" alt="" width="18" height="18">Orchard Download Manager · MIT License</span>
+    <a href="./">Home</a>
+    <a href="https://github.com/sandboxly/orchard-download-manager">Source code</a>
+  </div>
+</footer>
+</body>
+</html>

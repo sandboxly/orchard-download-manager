@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Orchard Download Manager",
   "short_name": "Orchard DM",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Download links, media and the browser's own downloads with Orchard Download Manager: segmented, resumable, in your queue.",
   "minimum_chrome_version": "116",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5DLFHb7Tu+C5nudaLgZZM/XYcseplcHI0jmKaTNU7hjbGuBIGQYSRj/QSlPnL9/lLUGF2+2lWGa6amlGldA80fLH8PHDJxFmphAkTzo4WdNTDZnkMVTtcUKjSQtrqsOmMf76fTVrQadsxgxUK9CxnR4hDHEqfa/cGpyP3jd1aC/xoP5f6ibnJm8rTu7wK46D+yVUM4r2a5lvSw4C+hZtu1DrIHwEI6h0Uz6/aXffULa2fR5vu9TJouavQuTQaSpNpMOtowvs5jJdmG65wHq/jZt3puF85/b5mypYb5WhZV/iuDtNPzn6u/cjXfcUnLUrzSSTrrIg4Sj1UwrbtEejKQIDAQAB",
