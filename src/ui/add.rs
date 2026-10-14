@@ -16,6 +16,7 @@ use crate::format;
 use crate::input::{KeyEvent, MouseEvent};
 use crate::links;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
+use crate::ui::picker::{FolderPicker, Outcome};
 use crate::ui::widgets::{DrawCtx, TextField};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,6 +25,7 @@ pub enum Id {
     Dir,
     Name,
     Checksum,
+    Choose,
     Start,
     Add,
     Cancel,
@@ -48,11 +50,13 @@ pub struct AddDialog {
     pub probe_due: Option<Instant>,
     pub lookup: Lookup,
     pub error: Option<String>,
+    pub picker: Option<FolderPicker>,
 }
 
 const WIDTH: u16 = 92;
 const ROWS: u16 = 11;
 const LABEL_W: u16 = 10;
+const CHOOSE_W: u16 = 12;
 
 /// Open the dialog with `text` in the links field.
 pub fn open(app: &mut App, text: &str) {
@@ -70,6 +74,7 @@ pub fn open(app: &mut App, text: &str) {
         probe_due: None,
         lookup: Lookup::None,
         error: None,
+        picker: None,
     };
     links_changed(&mut a);
     app.modal = Some(Modal::Add(a));
@@ -126,12 +131,17 @@ fn rects(app: &App) -> (CellRect, CellRect) {
     form::dialog_rects(crate::ui::screen(app), WIDTH, ROWS)
 }
 
-/// The folder a link would go to, as the field's placeholder.
-fn auto_dir(app: &App, a: &AddDialog) -> String {
-    let name = match &a.lookup {
+/// The file name as far as known: the server's, or the link's.
+fn auto_name(a: &AddDialog) -> String {
+    match &a.lookup {
         Lookup::Found(_, p) => p.name.clone(),
         _ => links::find(&a.links.text).first().map(|l| http::url_filename(l)).unwrap_or_default(),
-    };
+    }
+}
+
+/// The folder a link would go to, as the field's placeholder.
+fn auto_dir(app: &App, a: &AddDialog) -> String {
+    let name = auto_name(a);
     let several = links::find(&a.links.text).len() > 1;
     if app.settings.sort_by_category && (several || name.is_empty()) {
         return format!("by file type, in {}", crate::ui::home_relative(&app.settings.base_dir()));
@@ -155,7 +165,9 @@ fn layout(app: &App, a: &AddDialog) -> Form<Id> {
     f.label(CellRect::new(fx, row(1), fw, 1), info, kind);
 
     f.label(CellRect::new(x, row(3), LABEL_W, 1), "Save to", TextKind::Label);
-    f.ctls.push(Ctl::new(Id::Dir, CellRect::new(fx, row(3), fw, 1), Kind::Text(a.dir.clone(), auto_dir(app, a))));
+    let dir_w = fw.saturating_sub(CHOOSE_W + 1);
+    f.ctls.push(Ctl::new(Id::Dir, CellRect::new(fx, row(3), dir_w, 1), Kind::Text(a.dir.clone(), auto_dir(app, a))));
+    f.ctls.push(Ctl::new(Id::Choose, CellRect::new(fx + dir_w + 1, row(3), CHOOSE_W, 1), Kind::Button("Choose…".into())));
     f.label(CellRect::new(x, row(4), LABEL_W, 1), "Name", TextKind::Label);
     let name_hint = match (&a.lookup, single) {
         (_, false) => "each file keeps its own name".to_string(),
@@ -217,6 +229,9 @@ pub fn draw(app: &App, a: &AddDialog, f: &mut Frame, ctx: &DrawCtx) {
     let mut focus = a.focus;
     form.fix_focus(&mut focus);
     form.draw(f, focus, ctx);
+    if let Some(p) = &a.picker {
+        p.draw(f, crate::ui::screen(app), ctx);
+    }
 }
 
 fn field(a: &mut AddDialog, id: Id) -> Option<&mut TextField> {
@@ -231,6 +246,11 @@ fn field(a: &mut AddDialog, id: Id) -> Option<&mut TextField> {
 
 /// Returns whether the dialog stays open.
 pub fn key(app: &mut App, a: &mut AddDialog, ev: &KeyEvent) -> bool {
+    if let Some(p) = &mut a.picker {
+        let out = p.key(ev, crate::ui::screen(app));
+        picked(a, out);
+        return true;
+    }
     let form = layout(app, a);
     let mut focus = a.focus;
     form.fix_focus(&mut focus);
@@ -243,13 +263,39 @@ pub fn key(app: &mut App, a: &mut AddDialog, ev: &KeyEvent) -> bool {
 }
 
 pub fn mouse(app: &mut App, a: &mut AddDialog, ev: &MouseEvent) -> bool {
+    if let Some(p) = &mut a.picker {
+        let out = p.mouse(ev, crate::ui::screen(app));
+        picked(a, out);
+        return true;
+    }
     let form = layout(app, a);
     let act = form.handle_mouse(&mut a.focus, ev);
     act_on(app, a, act)
 }
 
+/// The folder picker closed (or not yet).
+fn picked(a: &mut AddDialog, out: Outcome) {
+    match out {
+        Outcome::Keep => {}
+        Outcome::Cancel => a.picker = None,
+        Outcome::Chosen(p) => {
+            a.dir.set_text(&crate::ui::home_relative(&p));
+            a.picker = None;
+            a.focus = Some(Id::Add);
+        }
+    }
+}
+
 fn act_on(app: &mut App, a: &mut AddDialog, act: Act<Id>) -> bool {
     match act {
+        Act::Press(Id::Choose) => {
+            let start = match a.dir.text.trim() {
+                "" => app.settings.dir_for(Category::of(&auto_name(a))),
+                t => expand_tilde(t),
+            };
+            a.picker = Some(FolderPicker::new(&start, app.tasks.waker()));
+            true
+        }
         Act::Escape | Act::Press(Id::Cancel) => false,
         Act::Submit | Act::Press(Id::Add) => !submit(app, a),
         Act::Toggle(Id::Start) => {

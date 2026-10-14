@@ -36,8 +36,8 @@ log = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 # Print --version/--self-test output to the console that started the app
-# (a GUI program there, see src/main.rs); keep the system awake.
-windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_System_Power"] }
+# (a GUI program there, see src/main.rs); keep the system awake; drive letters.
+windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_System_Power", "Win32_Storage_FileSystem"] }
 
 [build-dependencies]
 # The Windows icon and version resource (build.rs).

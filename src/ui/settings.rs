@@ -19,6 +19,7 @@ use crate::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
 use crate::settings::{self, Conflict, ProxyMode, Settings, Traffic, WhenDone};
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Choice, Ctl, Form, Kind, Popup, PopupOutcome, TextKind};
+use crate::ui::picker::{FolderPicker, Outcome};
 use crate::ui::widgets::{DrawCtx, TextField, contains, fill, put_elided};
 
 pub const PAGES: [&str; 9] = ["Appearance", "Downloads", "Categories", "Connections", "Speed", "Network", "Clipboard", "Schedule", "When done"];
@@ -29,6 +30,7 @@ const PAGE_ROWS: u16 = 15;
 const LABEL_W: u16 = 30;
 const FIELD_W: u16 = 34;
 const SPIN_W: u16 = 16;
+const CHOOSE_W: u16 = 12;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Id {
@@ -82,9 +84,35 @@ pub enum Id {
     PreventSleep,
     NotifyDone,
     VerifyChecksums,
+    /// "Choose…" next to a folder field.
+    Choose(Folder),
     // Buttons
     ResetPage,
     Close,
+}
+
+/// A folder setting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Folder {
+    Downloads,
+    Category(Category),
+}
+
+impl Folder {
+    fn field(self) -> Id {
+        match self {
+            Folder::Downloads => Id::DownloadDir,
+            Folder::Category(c) => Id::CategoryDir(c),
+        }
+    }
+
+    fn of(id: Id) -> Option<Folder> {
+        match id {
+            Id::DownloadDir => Some(Folder::Downloads),
+            Id::CategoryDir(c) => Some(Folder::Category(c)),
+            _ => None,
+        }
+    }
 }
 
 /// Where the keyboard is: the page list or a control.
@@ -104,6 +132,7 @@ pub struct SettingsDialog {
     schemes: Vec<Choice>,
     /// Why the last text didn't apply.
     pub problem: Option<String>,
+    picker: Option<(Folder, FolderPicker)>,
 }
 
 /// Open Settings, on `page` if given.
@@ -116,7 +145,7 @@ pub fn open(app: &mut App, page: Option<usize>) {
         schemes.push(None);
         schemes.extend(user.into_iter().map(Some));
     }
-    app.modal = Some(Modal::Settings(SettingsDialog { page: page.unwrap_or(0), focus: Focus::Sections, popup: None, editing: None, schemes, problem: None }));
+    app.modal = Some(Modal::Settings(SettingsDialog { page: page.unwrap_or(0), focus: Focus::Sections, popup: None, editing: None, schemes, problem: None, picker: None }));
 }
 
 /// Installed monospaced fonts, found on a worker (scanning takes a moment).
@@ -210,6 +239,7 @@ fn rows(page: usize, s: &Settings) -> Vec<Row> {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Type {
+    Button,
     Check,
     Combo,
     Spin,
@@ -225,7 +255,7 @@ fn type_of(id: Id) -> Type {
         FontSize | LineSpacing | ForgetAfter | MaxActive | Connections | MinSegment | Retries | RetryDelay | Timeout | LowLimit | LowMaxActive
         | MediumLimit | HighLimit => Type::Spin,
         DownloadDir | CategoryDir(_) | UserAgent | Proxy | CatchExtensions | ScheduleStart | ScheduleStop => Type::Text,
-        ResetPage | Close => Type::Check,
+        Choose(_) | ResetPage | Close => Type::Button,
     }
 }
 
@@ -247,7 +277,7 @@ fn label(id: Id) -> String {
         StartImmediately => "Start new downloads right away".into(),
         RememberFolder => "Suggest the folder used last".into(),
         ConfirmRemove => "Ask before removing downloads".into(),
-        ForgetAfter => "Clear finished downloads after".into(),
+        ForgetAfter => "Clear finished ones after".into(),
         CategoryDir(c) => c.label().into(),
         MaxActive => "Downloads at once".into(),
         Connections => "Connections per download".into(),
@@ -271,6 +301,7 @@ fn label(id: Id) -> String {
         PreventSleep => "Keep the computer awake".into(),
         NotifyDone => "Show a message when a download finishes".into(),
         VerifyChecksums => "Check files against a checksum given when adding them".into(),
+        Choose(_) => "Choose…".into(),
         ResetPage => "Reset page".into(),
         Close => "Close".into(),
     }
@@ -315,6 +346,7 @@ fn hint(id: Id) -> &'static str {
         PreventSleep => "The computer doesn't go to sleep on its own while downloads run.",
         NotifyDone => "Also asks for attention when the window is in the background.",
         VerifyChecksums => "A file that doesn't match is marked with ! — download it again with R.",
+        Choose(_) => "Pick the folder from a list instead of typing it.",
         ResetPage => "Put this page's settings back as they were when the app was new.",
         Close => "Changes are already saved.",
     }
@@ -672,6 +704,7 @@ fn disabled(s: &Settings, id: Id) -> bool {
         Id::CategoryDir(_) => !s.sort_by_category,
         Id::CatchExtensions => !s.clipboard_monitor,
         Id::ScheduleStart | Id::ScheduleStop | Id::Day(_) => !s.schedule_enabled,
+        Id::Choose(f) => disabled(s, f.field()),
         _ => false,
     }
 }
@@ -722,6 +755,7 @@ fn layout(app: &App, d: &SettingsDialog, r: &Rects) -> Form<Id> {
             Row::Item(id) => {
                 let dis = disabled(s, id);
                 match type_of(id) {
+                    Type::Button => {}
                     Type::Check => f.ctls.push(Ctl::new(id, CellRect::new(x, y, p.cols, 1), Kind::Check(label(id), check_value(s, id))).disabled(dis)),
                     Type::Combo => {
                         f.label(CellRect::new(x, y, LABEL_W - 1, 1), label(id), TextKind::Label);
@@ -738,7 +772,13 @@ fn layout(app: &App, d: &SettingsDialog, r: &Rects) -> Form<Id> {
                             Some((e, tf)) if *e == id => tf.clone(),
                             _ => TextField::new(text_value(s, id)),
                         };
-                        f.ctls.push(Ctl::new(id, CellRect::new(fx, y, fw, 1), Kind::Text(field, placeholder(app, id))).disabled(dis));
+                        let folder = Folder::of(id);
+                        let w = if folder.is_some() { fw.saturating_sub(CHOOSE_W + 1) } else { fw };
+                        f.ctls.push(Ctl::new(id, CellRect::new(fx, y, w, 1), Kind::Text(field, placeholder(app, id))).disabled(dis));
+                        if let Some(folder) = folder {
+                            let b = Id::Choose(folder);
+                            f.ctls.push(Ctl::new(b, CellRect::new(fx + w + 1, y, CHOOSE_W, 1), Kind::Button(label(b))).disabled(dis));
+                        }
                     }
                 }
             }
@@ -788,6 +828,25 @@ pub fn draw(app: &App, d: &SettingsDialog, f: &mut Frame, ctx: &DrawCtx) {
     {
         popup.draw(f, items, crate::ui::screen(app), ctx);
     }
+    if let Some((_, p)) = &d.picker {
+        p.draw(f, crate::ui::screen(app), ctx);
+    }
+}
+
+/// The folder picker for a folder setting answered.
+fn picked(app: &mut App, d: &mut SettingsDialog, folder: Folder, out: Outcome) {
+    match out {
+        Outcome::Keep => {}
+        Outcome::Cancel => d.picker = None,
+        Outcome::Chosen(p) => {
+            d.picker = None;
+            d.editing = None;
+            match commit_text(app, folder.field(), &p.to_string_lossy()) {
+                Ok(()) => d.problem = None,
+                Err(e) => d.problem = Some(e),
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -834,6 +893,12 @@ impl SettingsDialog {
 
 /// Returns whether the dialog stays open.
 pub fn key(app: &mut App, d: &mut SettingsDialog, ev: &KeyEvent) -> bool {
+    if let Some((folder, mut p)) = d.picker.take() {
+        let out = p.key(ev, crate::ui::screen(app));
+        d.picker = Some((folder, p));
+        picked(app, d, folder, out);
+        return true;
+    }
     let r = rects(app);
     let form = layout(app, d, &r);
     if let Some((id, mut popup)) = d.popup.take() {
@@ -909,6 +974,12 @@ pub fn key(app: &mut App, d: &mut SettingsDialog, ev: &KeyEvent) -> bool {
 }
 
 pub fn mouse(app: &mut App, d: &mut SettingsDialog, ev: &MouseEvent) -> bool {
+    if let Some((folder, mut p)) = d.picker.take() {
+        let out = p.mouse(ev, crate::ui::screen(app));
+        d.picker = Some((folder, p));
+        picked(app, d, folder, out);
+        return true;
+    }
     let r = rects(app);
     let form = layout(app, d, &r);
     if let Some((id, mut popup)) = d.popup.take() {
@@ -955,6 +1026,17 @@ fn act_on(app: &mut App, d: &mut SettingsDialog, act: Act<Id>, form: &Form<Id>) 
         Act::Escape | Act::Press(Id::Close) => {
             d.commit(app);
             return d.problem.is_some();
+        }
+        Act::Press(Id::Choose(folder)) => {
+            d.commit(app);
+            let start = match text_value(&app.settings, folder.field()) {
+                t if t.is_empty() => match folder {
+                    Folder::Downloads => app.settings.base_dir(),
+                    Folder::Category(c) => app.settings.base_dir().join(c.label()),
+                },
+                t => expand_tilde(&t),
+            };
+            d.picker = Some((folder, FolderPicker::new(&start, app.tasks.waker())));
         }
         Act::Press(Id::ResetPage) => {
             d.editing = None;

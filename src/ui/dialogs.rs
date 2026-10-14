@@ -14,6 +14,7 @@ use crate::format;
 use crate::input::{KeyEvent, MouseEvent, Named};
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
+use crate::ui::picker::{FolderPicker, Outcome};
 use crate::ui::widgets::{BoxFrame, DrawCtx, TextField, put, width};
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,7 @@ pub enum PropId {
     Url,
     Name,
     Dir,
+    Choose,
     Connections,
     Limit,
     Checksum,
@@ -148,6 +150,7 @@ pub struct Properties {
     can_move: bool,
     focus: Option<PropId>,
     error: Option<String>,
+    picker: Option<FolderPicker>,
 }
 
 pub fn open_properties(app: &mut App) {
@@ -165,6 +168,7 @@ pub fn open_properties(app: &mut App) {
         can_move,
         focus: Some(PropId::Url),
         error: None,
+        picker: None,
     };
     app.modal = Some(Modal::Properties(p));
 }
@@ -192,6 +196,10 @@ impl Properties {
         text(&mut f, 1, "Name", PropId::Name, &self.name, &server_name, !self.can_move);
         let auto = d.map(|d| crate::ui::home_relative(&app.settings.dir_for(d.category()))).unwrap_or_default();
         text(&mut f, 2, "Folder", PropId::Dir, &self.dir, &auto, !self.can_move);
+        if let Some(dir) = f.ctls.last_mut() {
+            dir.rect.cols = fw.saturating_sub(13);
+        }
+        f.ctls.push(Ctl::new(PropId::Choose, CellRect::new(fx + fw.saturating_sub(12), row(2), 12, 1), Kind::Button("Choose…".into())).disabled(!self.can_move));
         text(&mut f, 3, "Checksum", PropId::Checksum, &self.checksum, "optional: SHA-256, SHA-1 or MD5", false);
         f.label(CellRect::new(c.col, row(5), lw, 1), "Connections", TextKind::Label);
         let conns = match self.connections {
@@ -218,6 +226,21 @@ impl Properties {
         let (outer, _) = Self::rects(app);
         form::dialog_box(f, outer, "Properties", ctx);
         self.layout(app).draw(f, self.focus, ctx);
+        if let Some(p) = &self.picker {
+            p.draw(f, crate::ui::screen(app), ctx);
+        }
+    }
+
+    fn picked(&mut self, out: Outcome) {
+        match out {
+            Outcome::Keep => {}
+            Outcome::Cancel => self.picker = None,
+            Outcome::Chosen(p) => {
+                self.dir.set_text(&crate::ui::home_relative(&p));
+                self.picker = None;
+                self.focus = Some(PropId::Save);
+            }
+        }
     }
 
     fn field(&mut self, id: PropId) -> Option<&mut TextField> {
@@ -231,6 +254,11 @@ impl Properties {
     }
 
     pub fn key(&mut self, app: &mut App, ev: &KeyEvent) -> bool {
+        if let Some(p) = &mut self.picker {
+            let out = p.key(ev, crate::ui::screen(app));
+            self.picked(out);
+            return true;
+        }
         let form = self.layout(app);
         let mut focus = self.focus;
         form.fix_focus(&mut focus);
@@ -243,6 +271,11 @@ impl Properties {
     }
 
     pub fn mouse(&mut self, app: &mut App, ev: &MouseEvent) -> bool {
+        if let Some(p) = &mut self.picker {
+            let out = p.mouse(ev, crate::ui::screen(app));
+            self.picked(out);
+            return true;
+        }
         let act = self.layout(app).handle_mouse(&mut self.focus, ev);
         self.act(app, act)
     }
@@ -250,6 +283,14 @@ impl Properties {
     fn act(&mut self, app: &mut App, act: Act<PropId>) -> bool {
         match act {
             Act::Escape | Act::Press(PropId::Cancel) => false,
+            Act::Press(PropId::Choose) => {
+                let start = match self.dir.text.trim() {
+                    "" => app.get(self.id).map(|d| app.settings.dir_for(d.category())).unwrap_or_else(|| app.settings.base_dir()),
+                    t => expand_tilde(t),
+                };
+                self.picker = Some(FolderPicker::new(&start, app.tasks.waker()));
+                true
+            }
             Act::Submit | Act::Press(PropId::Save) => !self.save(app),
             Act::Step(PropId::Connections, d) => {
                 let n = self.connections.map_or(0, |n| n as i32) + d.signum();

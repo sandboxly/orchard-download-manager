@@ -354,3 +354,29 @@ fn every_dialog_draws_at_small_sizes() {
         }
     }
 }
+
+#[test]
+fn choosing_a_folder_from_the_add_dialog() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("Sub")).unwrap();
+    let mut app = app(dir.path());
+    ui::add::open(&mut app, "https://x.org/a.zip");
+    // Links → Save to → Choose…
+    let Some(Modal::Add(a)) = &mut app.modal else { panic!() };
+    a.focus = Some(ui::add::Id::Choose);
+    key(&mut app, Named::Enter);
+    let listed = |app: &App| matches!(&app.modal, Some(Modal::Add(a)) if a.picker.as_ref().is_some_and(|p| p.listed()));
+    settle(&mut app, "listed", listed);
+    // Row 0 is "..", then "Sub".
+    key(&mut app, Named::End);
+    key(&mut app, Named::Enter);
+    settle(&mut app, "in Sub", |app| {
+        matches!(&app.modal, Some(Modal::Add(a)) if a.picker.as_ref().is_some_and(|p| p.place == ui::picker::Place::Dir(dir.path().join("Sub"))))
+    });
+    key(&mut app, Named::F(2));
+    let Some(Modal::Add(a)) = &app.modal else { panic!() };
+    assert!(a.picker.is_none());
+    assert_eq!(ui::add::expand_tilde(&a.dir.text), dir.path().join("Sub"));
+    key(&mut app, Named::Enter);
+    assert_eq!(app.downloads[0].dir.as_deref(), Some(dir.path().join("Sub").as_path()));
+}

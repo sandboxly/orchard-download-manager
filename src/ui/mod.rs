@@ -4,6 +4,7 @@
 pub mod add;
 pub mod dialogs;
 pub mod form;
+pub mod picker;
 pub mod settings;
 pub mod widgets;
 
