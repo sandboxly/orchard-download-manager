@@ -64,8 +64,8 @@ Source code: https://github.com/sandboxly/orchard-download-manager
 
 **Privacy policy:** https://sandboxly.github.io/orchard-download-manager/privacy.html
 
-## After the first upload
+## The store's ID
 
-The store gives the extension its own ID. Add it to `EXTENSION_IDS` in
-`src/native_host.rs` and release the app, or the store version can't reach
-the app.
+The store gave the extension the ID `dhebpclkehhbkajeefceephmdhchaeai`.
+It is in `EXTENSION_IDS` in `src/native_host.rs`, so the app lets the
+store version in.

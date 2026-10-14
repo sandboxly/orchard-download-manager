@@ -28,7 +28,12 @@ pub const HOST_NAME: &str = "io.github.sandboxly.orchard_download_manager";
 
 /// The extensions allowed to talk to the app (the development build's ID
 /// comes from the key in its manifest).
-pub const EXTENSION_IDS: &[&str] = &["paglhhneednmdpggkmbipgljhgjepaga"];
+pub const EXTENSION_IDS: &[&str] = &[
+    // The store's extension.
+    "dhebpclkehhbkajeefceephmdhchaeai",
+    // Development: loaded unpacked, its ID from the key in manifest.json.
+    "paglhhneednmdpggkmbipgljhgjepaga",
+];
 
 /// Bigger messages are refused (the browser sends at most a page of links).
 const MAX_MESSAGE: usize = 16 * 1024 * 1024;
