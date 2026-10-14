@@ -21,6 +21,10 @@ renderer (`oc-grid`), same color schemes, same frame look.
 * Keeps the computer awake while downloading; quit or sleep when done.
 * Proxies (HTTP, SOCKS5), the system's certificates.
 * Links from the command line go to the running app.
+* A browser extension (Chrome for now): the browser's downloads, links
+  and media from the context menu go to the app, with the cookies and
+  referring page, so downloads behind a sign-in work. See
+  [extension/README.md](extension/README.md).
 * Settings for all of it (F9), and the color schemes shared with Orchard
   Commander.
 
@@ -30,6 +34,16 @@ renderer (`oc-grid`), same color schemes, same frame look.
 cargo build --release
 ./target/release/orchard-download-manager [LINK]...
 ```
+
+## Browser extension
+
+`extension/chrome/` is the Chrome extension (plain JavaScript, no build
+step). The app is its helper: the browser starts
+`orchard-download-manager chrome-extension://…/`, which hands the links to
+the running app (starting it if needed). The app tells the installed
+browsers where it is each time it starts. To try it, open the app once,
+then load `extension/chrome` unpacked in `chrome://extensions`. Details in
+[extension/README.md](extension/README.md).
 
 ## Keys
 

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Orchard Download Manager</title>
+<link rel="stylesheet" href="common/page.css">
+<style>
+  body { width: 340px; padding: 14px; }
+  #status { margin-top: 12px; }
+  #help { margin-top: 6px; }
+  footer { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+</style>
+<script src="popup.js" type="module"></script>
+</head>
+<body>
+  <h1><img src="icons/icon-32.png" alt="">Orchard Download Manager</h1>
+  <p id="status" class="mute">Checking the connection…</p>
+  <p id="help" class="hint" hidden></p>
+  <div class="frame">
+    <span class="chip">Downloads</span>
+    <label class="check"><input type="checkbox" id="takeOver"><span>Download with the app instead of the browser<br><span class="hint">Right-click a link for more: one link, or all links on the page</span></span></label>
+  </div>
+  <footer>
+    <a href="#" id="settings">Settings</a>
+    <span class="hint" id="version"></span>
+  </footer>
+</body>
+</html>

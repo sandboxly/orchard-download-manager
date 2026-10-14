@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Orchard Download Manager settings</title>
+<link rel="stylesheet" href="common/page.css">
+<style>
+  body { max-width: 640px; margin: 0 auto; padding: 28px 20px; }
+  #saved { margin-left: 10px; }
+</style>
+<script src="options.js" type="module"></script>
+</head>
+<body>
+  <h1><img src="icons/icon-32.png" alt="">Orchard Download Manager settings</h1>
+  <div class="frame">
+    <span class="chip">The browser's downloads</span>
+    <label class="check"><input type="checkbox" id="takeOver"><span>Download with the app instead of the browser<br><span class="hint">When the app can't be reached, the browser downloads the file itself</span></span></label>
+    <div class="field">
+      <label for="minSizeKB">Leave smaller files to the browser (KB)</label>
+      <input type="number" id="minSizeKB" min="0" step="1">
+      <span class="hint">0: the app takes files of every size. Files of unknown size always go to the app.</span>
+    </div>
+    <div class="field">
+      <label for="skipSites">Sites the browser keeps downloading from</label>
+      <textarea id="skipSites" spellcheck="false" placeholder="example.org"></textarea>
+      <span class="hint">One per line. A site also covers its subdomains.</span>
+    </div>
+    <div class="field">
+      <label for="skipTypes">File types the browser keeps</label>
+      <input type="text" id="skipTypes" spellcheck="false" placeholder="pdf jpg">
+      <span class="hint">File name endings, separated by spaces</span>
+    </div>
+  </div>
+  <p class="hint">Links from the context menu always go to the app. Whether the app asks before adding them is set in the app, under Settings › Browser. <span id="saved" class="ok" hidden>Saved</span></p>
+</body>
+</html>

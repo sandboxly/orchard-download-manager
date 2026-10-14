@@ -1,0 +1,26 @@
+/* The popup and the settings page, in the Orchard apps' default colors. */
+:root {
+  --bg: #1e1f1c; --surface: #272822; --text: #f8f8f2; --mute: #a8a48c;
+  --border: #49483e; --accent: #a6e22e; --key: #fd971f; --error: #f92672;
+  --mono: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); }
+a { color: var(--accent); }
+h1 { font-size: 14px; font-weight: 500; margin: 0; display: flex; align-items: center; gap: 8px; }
+h1 img { width: 20px; height: 20px; }
+.frame { position: relative; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 18px 14px 14px; margin-top: 18px; }
+.frame > .chip { position: absolute; top: 0; left: 10px; transform: translateY(-50%); padding: 0 6px; background: var(--surface); font-size: 12px; }
+.mute { color: var(--mute); }
+.ok { color: var(--accent); }
+.err { color: var(--error); }
+label.check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+label.check input { accent-color: var(--key); margin: 3px 0 0; }
+.field { display: grid; gap: 4px; margin-top: 14px; }
+.field input, .field textarea { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; }
+.field input:focus, .field textarea:focus, button:focus-visible { outline: 1px solid var(--accent); border-color: var(--accent); }
+.field textarea { min-height: 84px; resize: vertical; }
+.hint { color: var(--mute); font-size: 12px; }
+button { font: inherit; color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+button:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }

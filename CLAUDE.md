@@ -13,6 +13,8 @@ cargo run --release -- [LINK]...                                   # run (links 
 cargo test                                                         # all tests (a local HTTP server, no network)
 ODM_TEST_URL=https://… cargo test real_server -- --nocapture       # plus one real server
 cargo clippy --all-targets -- -D warnings                          # lint
+node --test extension/test/*.test.mjs                              # the extension's rules
+extension/package.sh                                               # dist/orchard-download-manager-chrome.zip for the store
 cargo run -- --screenshot /tmp/x.png --size 120x40 --dialog settings:speed   # look at the UI headless
 ```
 
@@ -25,6 +27,7 @@ cargo run -- --screenshot /tmp/x.png --size 120x40 --dialog settings:speed   # l
 - `engine/`: one controller thread per running download plus a thread per connection (plain threads, `ureq`, no async). Segments are split dynamically: a connection that finishes takes over half of the largest remaining segment. Bytes go to "<name>.part" by offset; `Shared` holds live progress, which the UI reads. Events come back through a callback that posts to the UI thread. `engine/tests.rs` has the local test server (ranges, throttling, broken connections, statuses) that the app tests reuse.
 - `ui/form.rs`: the form controls shared by all dialogs (text, check, combo, spin, button; focus and keys). `ui/settings.rs` is data-driven: a setting is an `Id` with a label, hint, type and get/set; add one there and to `Settings`.
 - Blocking work (probing a link, checksums, deleting files) goes through `tasks.rs`, never the UI thread.
+- `native_host.rs` + `extension/chrome/`: the browser extension talks to the app's helper mode (started by the browser with a `chrome-extension://…/` argument, detected first thing in `main`): length-prefixed JSON on stdin/stdout, links with their headers (cookies, referrer, user agent) forwarded through `ipc.rs` as a `Handoff`. The app writes the helper's manifest for installed browsers on every start (Windows: registry), except with `ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR` set. The extension's shared logic is in `extension/chrome/common/` (no browser calls in `rules.js`; `node --test extension/test/*.test.mjs`). Cookies are kept in `downloads.json` (owner-only) and must never be logged or shown.
 - `ipc.rs`: a second start hands its links to the running app over a local socket (`instance.json` with a token in the config folder).
 
 ## Gotchas
