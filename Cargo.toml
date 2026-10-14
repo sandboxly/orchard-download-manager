@@ -1,0 +1,55 @@
+[package]
+name = "orchard-download-manager"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Stephan Lengl <lengl.stephan@gmail.com>"]
+rust-version = "1.90"
+description = "A themeable, keyboard-friendly download manager with segmented, resumable downloads"
+
+[[bin]]
+name = "orchard-download-manager"
+path = "src/main.rs"
+
+[dependencies]
+# The character-grid renderer Orchard Commander draws into (wgpu + winit).
+# Shared with Orchard Commander, pinned to a release tag (for a local change
+# to them, override with a [patch] section pointing at a checkout).
+oc-grid = { git = "https://github.com/sandboxly/orchard-commander", tag = "v2.0.1" }
+# Color schemes, frame styles and the shared color-schemes folder.
+oc-config = { git = "https://github.com/sandboxly/orchard-commander", tag = "v2.0.1" }
+# HTTP(S) on plain threads. No gzip: downloads need the bytes as served, so
+# ranges line up. The system's certificate store, HTTP and SOCKS proxies.
+ureq = { version = "3.4", default-features = false, features = ["rustls", "platform-verifier", "socks-proxy"] }
+url = "2.5"
+percent-encoding = "2.3"
+arboard = { version = "3.6", default-features = false }
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "6.0"
+log = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+# Print --version/--self-test output to the console that started the app
+# (a GUI program there, see src/main.rs); keep the system awake.
+windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_System_Power"] }
+
+[build-dependencies]
+# The Windows icon and version resource (build.rs).
+embed-resource = "3"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev.package."*"]
+opt-level = 2
