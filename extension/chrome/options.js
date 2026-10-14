@@ -1,4 +1,5 @@
 import * as options from './common/options.js';
+import * as access from './common/access.js';
 
 const $ = (id) => document.getElementById(id);
 let timer;
@@ -15,6 +16,7 @@ async function init() {
   $('minSizeKB').value = opts.minSizeKB;
   $('skipSites').value = opts.skipSites;
   $('skipTypes').value = opts.skipTypes;
+  await access.bind($('allSites'), saved);
   $('takeOver').addEventListener('change', async (e) => {
     await options.save({ takeOver: e.target.checked });
     saved();

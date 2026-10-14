@@ -15,5 +15,5 @@
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "background": { "service_worker": "background.js", "type": "module" },
   "permissions": ["downloads", "contextMenus", "cookies", "nativeMessaging", "storage", "scripting", "activeTab"],
-  "host_permissions": ["<all_urls>"]
+  "optional_host_permissions": ["<all_urls>"]
 }

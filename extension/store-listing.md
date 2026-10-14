@@ -55,8 +55,8 @@ Source code: https://github.com/sandboxly/orchard-download-manager
 | `nativeMessaging` | The only way the extension talks to the app installed on the computer. |
 | `storage` | The extension's own settings (on or off, sites and file types to skip). |
 | `scripting` | To read the links on the current page or selection when the user chooses "Download all links". Runs only on that click. |
-| `activeTab` | Access to the current tab when the user chooses "Download all links". |
-| Host permission `<all_urls>` | Cookies are read for the download's address, which can be on any site. No content scripts run on pages. |
+| `activeTab` | Access to the current tab when the user chooses an item from the right-click menu: reading the links for "Download all links", and that site's cookies for the links sent. |
+| Optional host permission `<all_urls>` | Not granted at install. Only when the user turns on "Send sign-in cookies with every download" does the browser ask for it: cookies for a download's address, which can be on any site, need it. No content scripts run on pages. |
 
 **Remote code:** No. All code is in the package.
 

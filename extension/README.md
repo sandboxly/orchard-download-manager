@@ -18,7 +18,12 @@ What it does:
   (the app's Add dialog lists them all).
 * **Downloads behind a sign-in work**: the browser's cookies for the link,
   the referring page and the browser's user agent go along as request
-  headers.
+  headers. Reading cookies needs access to the link's site: the extension
+  asks for no site access at install (the store reviews broad access
+  closely), so by default cookies go along only for links right-clicked on
+  the site the tab shows (the click grants that site for a moment). "Send
+  sign-in cookies with every download", in the popup and the settings page,
+  asks the browser for access to all sites (an optional permission).
 
 In the app, Settings › Browser decides whether links from the browser open
 the Add dialog first (the default) or go straight into the list.

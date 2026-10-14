@@ -1,5 +1,6 @@
 import * as app from './common/app.js';
 import * as options from './common/options.js';
+import * as access from './common/access.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -7,6 +8,7 @@ async function init() {
   const opts = await options.load();
   $('takeOver').checked = opts.takeOver;
   $('takeOver').addEventListener('change', (e) => options.save({ takeOver: e.target.checked }));
+  await access.bind($('allSites'));
   $('settings').addEventListener('click', (e) => {
     e.preventDefault();
     chrome.runtime.openOptionsPage();
