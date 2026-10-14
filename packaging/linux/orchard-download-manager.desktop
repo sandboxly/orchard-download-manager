@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Orchard Download Manager
+GenericName=Download manager
+Comment=Fast, resumable downloads with a queue and a schedule
+Exec=orchard-download-manager %U
+Icon=orchard-download-manager
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=download;downloader;queue;resume;http;
+StartupWMClass=orchard-download-manager

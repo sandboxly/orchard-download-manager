@@ -28,12 +28,26 @@ renderer (`oc-grid`), same color schemes, same frame look.
 * Settings for all of it (F9), and the color schemes shared with Orchard
   Commander.
 
+## Install
+
+Downloads for macOS (Apple silicon), Windows and Linux are on the
+[website](https://sandboxly.github.io/orchard-download-manager/) and the
+[releases page](https://github.com/sandboxly/orchard-download-manager/releases).
+On macOS also:
+
+```sh
+brew install --cask sandboxly/tap/orchard-download-manager
+```
+
 ## Building
 
 ```sh
 cargo build --release
 ./target/release/orchard-download-manager [LINK]...
 ```
+
+Packages (macOS dmg, Windows installer, deb, rpm, AppImage) and the release
+steps: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Browser extension
 
