@@ -1,7 +1,7 @@
 //! All of the app's state and behavior. The binary owns only the window
 //! and the GPU; it feeds events in and draws `ui::draw(&app, …)`.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -66,7 +66,7 @@ pub struct Search {
 }
 
 pub enum Modal {
-    Add(AddDialog),
+    Add(Box<AddDialog>),
     Settings(SettingsDialog),
     Remove(dialogs::Remove),
     Properties(dialogs::Properties),
@@ -98,7 +98,8 @@ pub struct AddOptions {
     pub name: Option<String>,
     pub checksum: Option<Expected>,
     pub start: bool,
-    pub headers: http::Headers,
+    /// Request headers by link (from the browser).
+    pub headers: HashMap<String, http::Headers>,
 }
 
 pub struct App {
@@ -594,7 +595,7 @@ impl App {
             }
             d.dir = opts.dir.clone();
             d.checksum = opts.checksum.clone();
-            d.headers = opts.headers.clone();
+            d.headers = opts.headers.get(link).cloned().unwrap_or_default();
             d.status = if opts.start { Status::Queued } else { Status::Paused };
             self.cursor = Some(d.id);
             self.downloads.push(d);
@@ -638,17 +639,34 @@ impl App {
 
     /// Links from another start of the app (or nothing: just come forward).
     pub fn external_links(&mut self, links: Vec<String>) {
-        self.raise = true;
-        let found = crate::links::find(&links.join(" "));
-        if found.is_empty() {
+        self.handoff(crate::ipc::Handoff { links, ..Default::default() });
+    }
+
+    /// Links from another start or from the browser: the Add dialog, or
+    /// straight into the list (the browser, if the settings say so).
+    pub fn handoff(&mut self, h: crate::ipc::Handoff) {
+        let mut items: Vec<crate::ipc::Link> = crate::links::find(&h.links.join(" ")).into_iter().map(crate::ipc::Link::plain).collect();
+        items.extend(h.items.into_iter().filter(|l| l.url.starts_with("http://") || l.url.starts_with("https://")));
+        let ask = !h.browser || self.settings.browser_ask;
+        if ask {
+            self.raise = true;
+        }
+        if items.is_empty() {
             return;
         }
-        if self.modal.is_none() {
-            ui::add::open(self, &found.join(" "));
-        } else {
-            let n = self.add_links(&found, AddOptions { start: self.settings.start_immediately, ..AddOptions::default() });
-            self.toast(format!("Added {}", format::count(n, "download", "downloads")), false);
+        if ask && self.modal.is_none() {
+            ui::add::open_links(self, &items);
+            return;
         }
+        let urls: Vec<String> = items.iter().map(|l| l.url.clone()).collect();
+        let name = match items.as_slice() {
+            [one] => one.name.clone(),
+            _ => None,
+        };
+        let headers = items.into_iter().filter(|l| !l.headers.is_empty()).map(|l| (l.url, l.headers)).collect();
+        let n = self.add_links(&urls, AddOptions { start: self.settings.start_immediately, name, headers, ..AddOptions::default() });
+        self.toast(format!("Added {}", format::count(n, "download", "downloads")), false);
+        self.attention = true;
     }
 
     // -- running ------------------------------------------------------------

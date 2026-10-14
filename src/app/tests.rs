@@ -380,3 +380,41 @@ fn choosing_a_folder_from_the_add_dialog() {
     key(&mut app, Named::Enter);
     assert_eq!(app.downloads[0].dir.as_deref(), Some(dir.path().join("Sub").as_path()));
 }
+
+#[test]
+fn downloads_from_the_browser_keep_their_cookies() {
+    let content = data(300 * 1024);
+    let server = serve(content.clone(), ServerOpts { ranges: true, cookie: Some("session=abc".into()), ..Default::default() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app(dir.path());
+    let link = crate::ipc::Link { url: server.url.clone(), headers: vec![("Cookie".into(), "session=abc".into())], name: Some("report.bin".into()) };
+    let h = crate::ipc::Handoff { items: vec![link], browser: true, ..Default::default() };
+
+    // The Add dialog first, with the browser's name; adding keeps the headers.
+    app.handoff(h.clone());
+    let Some(Modal::Add(a)) = &app.modal else { panic!("the Add dialog opens") };
+    assert_eq!(a.name.text, "report.bin");
+    key(&mut app, Named::Enter);
+    assert!(app.modal.is_none());
+    settle(&mut app, "done", |a| a.downloads[0].status == Status::Done);
+    assert_eq!(std::fs::read(dir.path().join("report.bin")).unwrap(), content);
+
+    // Straight into the list when the settings say so.
+    app.settings.browser_ask = false;
+    app.settings.start_immediately = false;
+    app.handoff(h);
+    assert!(app.modal.is_none());
+    assert_eq!(app.downloads.len(), 2);
+    assert_eq!(app.downloads[1].status, Status::Paused);
+    assert_eq!(app.downloads[1].headers, [("Cookie".to_string(), "session=abc".to_string())]);
+}
+
+#[test]
+fn links_from_another_start_open_the_add_dialog() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app(dir.path());
+    app.settings.browser_ask = false;
+    app.external_links(vec!["see https://x.org/a.zip".into()]);
+    assert!(matches!(&app.modal, Some(Modal::Add(a)) if a.links.text == "https://x.org/a.zip"), "only the browser's links skip the dialog");
+    assert!(app.raise);
+}

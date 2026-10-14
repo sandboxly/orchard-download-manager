@@ -145,6 +145,9 @@ pub struct Settings {
     pub proxy: String,
 
     // -- monitoring -------------------------------------------------------
+    /// Links from the browser extension open the Add dialog (else they are
+    /// added at once, started as `start_immediately` says).
+    pub browser_ask: bool,
     /// Offer links copied to the clipboard.
     pub clipboard_monitor: bool,
     /// File extensions the clipboard monitor reacts to (space separated).
@@ -209,6 +212,7 @@ impl Default for Settings {
             low_max_active: 1,
             proxy_mode: ProxyMode::System,
             proxy: String::new(),
+            browser_ask: true,
             clipboard_monitor: true,
             catch_extensions: DEFAULT_CATCH.into(),
             schedule_enabled: false,

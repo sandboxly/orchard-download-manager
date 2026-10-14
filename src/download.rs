@@ -243,9 +243,8 @@ pub fn save(dir: &Path, downloads: &[Download], next_id: u64) -> std::io::Result
         downloads: &'a [Download],
     }
     fs::create_dir_all(dir)?;
-    let tmp = dir.join("downloads.json.tmp");
-    fs::write(&tmp, serde_json::to_string_pretty(&Out { next_id, downloads }).unwrap_or_default())?;
-    fs::rename(tmp, list_file(dir))
+    // Only for this user: downloads from the browser keep its cookies.
+    crate::ipc::write_private(&list_file(dir), &serde_json::to_string_pretty(&Out { next_id, downloads }).unwrap_or_default())
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@
 //! optional name and checksum. A single link is looked up in the
 //! background, so the dialog shows its real name and size before adding.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -51,6 +52,9 @@ pub struct AddDialog {
     pub lookup: Lookup,
     pub error: Option<String>,
     pub picker: Option<FolderPicker>,
+    /// Request headers by link (cookies and the page, from the browser):
+    /// for the lookup and the downloads. Never shown.
+    pub headers: HashMap<String, http::Headers>,
 }
 
 const WIDTH: u16 = 92;
@@ -75,9 +79,24 @@ pub fn open(app: &mut App, text: &str) {
         lookup: Lookup::None,
         error: None,
         picker: None,
+        headers: HashMap::new(),
     };
     links_changed(&mut a);
-    app.modal = Some(Modal::Add(a));
+    app.modal = Some(Modal::Add(Box::new(a)));
+}
+
+/// Open the dialog with links from the browser (their headers and, for
+/// one, the name the browser chose).
+pub fn open_links(app: &mut App, items: &[crate::ipc::Link]) {
+    let text: Vec<&str> = items.iter().map(|l| l.url.as_str()).collect();
+    open(app, &text.join(" "));
+    let Some(Modal::Add(a)) = &mut app.modal else { return };
+    a.headers = items.iter().filter(|l| !l.headers.is_empty()).map(|l| (l.url.clone(), l.headers.clone())).collect();
+    if let [one] = items
+        && let Some(name) = one.name.as_deref().map(str::trim).filter(|n| !n.is_empty())
+    {
+        a.name.set_text(name);
+    }
 }
 
 /// The links field changed: look a single link up shortly.
@@ -101,6 +120,7 @@ pub fn probe(app: &mut App) {
     let found = links::find(&a.links.text);
     let [url] = found.as_slice() else { return };
     let url = url.clone();
+    let headers = a.headers.get(&url).cloned().unwrap_or_default();
     a.lookup = Lookup::Checking(url.clone());
     let agent = match app.agent() {
         Ok(agent) => agent,
@@ -113,7 +133,7 @@ pub fn probe(app: &mut App) {
     };
     let u = url.clone();
     app.tasks.spawn(
-        move || http::probe(&agent, &u, &Vec::new()),
+        move || http::probe(&agent, &u, &headers),
         move |app, result| {
             let Some(Modal::Add(a)) = &mut app.modal else { return };
             if a.lookup != Lookup::Checking(url.clone()) {
@@ -346,7 +366,7 @@ fn submit(app: &mut App, a: &mut AddDialog) -> bool {
         a.focus = Some(Id::Dir);
         return false;
     }
-    let opts = AddOptions { dir, name: Some(a.name.text.clone()), checksum, start: a.start, headers: Vec::new() };
+    let opts = AddOptions { dir, name: Some(a.name.text.clone()), checksum, start: a.start, headers: a.headers.clone() };
     let n = app.add_links(&found, opts);
     if n > 1 {
         app.toast(format!("Added {}", format::count(n, "download", "downloads")), false);

@@ -425,6 +425,10 @@ fn main() -> ExitCode {
     attach_parent_console();
     log_panics();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // Started by the browser for its extension: talk to it, no window.
+    if orchard_download_manager::native_host::is_invocation(&args) {
+        return orchard_download_manager::native_host::run();
+    }
     if args.iter().any(|a| a == "-h" || a == "--help") {
         println!("{}", usage());
         return ExitCode::SUCCESS;
@@ -460,8 +464,13 @@ fn main() -> ExitCode {
         let _ = proxy.lock().unwrap().send_event(UserEvent::Wake);
     });
     let app = App::new(wake, true);
+    // Let the browsers find the extension's helper (this copy of the app).
+    // Not for a separate test setup, which the helper wouldn't reach.
+    if std::env::var_os("ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR").is_none() {
+        std::thread::spawn(orchard_download_manager::native_host::register);
+    }
     let tasks = app.tasks.clone();
-    if let Err(e) = orchard_download_manager::ipc::listen(&config, move |links| tasks.post(move |app| app.external_links(links))) {
+    if let Err(e) = orchard_download_manager::ipc::listen(&config, move |h| tasks.post(move |app| app.handoff(h))) {
         log::warn!("listening for other starts: {e}");
     }
     let mut platform = Platform {

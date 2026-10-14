@@ -25,6 +25,8 @@ pub struct ServerOpts {
     pub status: Option<u16>,
     /// No Content-Length on full responses.
     pub chunked_unknown: bool,
+    /// Answer 403 to requests without exactly this Cookie header.
+    pub cookie: Option<String>,
 }
 
 pub struct Server {
@@ -67,6 +69,7 @@ pub fn serve(content: Vec<u8>, opts: ServerOpts) -> Server {
 fn handle(mut s: TcpStream, data: &[u8], o: &ServerOpts, n: usize) -> std::io::Result<()> {
     let mut reader = BufReader::new(s.try_clone()?);
     let mut range = None;
+    let mut cookie = None;
     let mut line = String::new();
     reader.read_line(&mut line)?;
     loop {
@@ -82,8 +85,17 @@ fn handle(mut s: TcpStream, data: &[u8], o: &ServerOpts, n: usize) -> std::io::R
             let b: usize = if b.is_empty() { last } else { b.parse().unwrap() };
             range = Some((a, b.min(last)));
         }
+        if let Some((k, v)) = h.split_once(':')
+            && k.eq_ignore_ascii_case("cookie")
+        {
+            cookie = Some(v.trim().to_string());
+        }
     }
-    if let Some(st) = o.status {
+    let status = match &o.cookie {
+        Some(want) if cookie.as_ref() != Some(want) => Some(403),
+        _ => o.status,
+    };
+    if let Some(st) = status {
         write!(s, "HTTP/1.1 {st} Nope\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")?;
         return Ok(());
     }
@@ -300,6 +312,21 @@ fn missing_files_fail_at_once() {
     let ev = run_to_end(spec(&server.url), Shared::new(0), dir.path());
     assert_eq!(ev, ["failed the server doesn't have this file (404)"]);
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn headers_from_the_browser_go_with_every_request() {
+    let content = data(1024 * 1024);
+    let opts = ServerOpts { ranges: true, cookie: Some("session=abc".into()), ..Default::default() };
+    let server = serve(content.clone(), opts);
+    let dir = tempfile::tempdir().unwrap();
+    let ev = run_to_end(spec(&server.url), Shared::new(0), dir.path());
+    assert_eq!(ev.last().unwrap(), "failed the server refused access (403) — the link may have expired");
+
+    let headers = vec![("Cookie".to_string(), "session=abc".to_string()), ("Referer".to_string(), "https://x.org/".to_string())];
+    let ev = run_to_end(Spec { headers, ..spec(&server.url) }, Shared::new(0), dir.path());
+    assert_eq!(ev.last().unwrap(), "done test file.bin");
+    assert_eq!(fs::read(dir.path().join("test file.bin")).unwrap(), content);
 }
 
 #[test]

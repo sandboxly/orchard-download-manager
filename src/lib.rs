@@ -11,6 +11,7 @@ pub mod icons;
 pub mod input;
 pub mod ipc;
 pub mod links;
+pub mod native_host;
 pub mod settings;
 pub mod system;
 pub mod tasks;

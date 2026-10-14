@@ -22,7 +22,7 @@ use crate::ui::form::{self, Act, Choice, Ctl, Form, Kind, Popup, PopupOutcome, T
 use crate::ui::picker::{FolderPicker, Outcome};
 use crate::ui::widgets::{DrawCtx, TextField, contains, fill, put_elided};
 
-pub const PAGES: [&str; 9] = ["Appearance", "Downloads", "Categories", "Connections", "Speed", "Network", "Clipboard", "Schedule", "When done"];
+pub const PAGES: [&str; 9] = ["Appearance", "Downloads", "Categories", "Connections", "Speed", "Network", "Browser", "Schedule", "When done"];
 
 const WIDTH: u16 = 108;
 const SECTIONS_W: u16 = 16;
@@ -71,7 +71,8 @@ pub enum Id {
     // Network
     ProxyMode,
     Proxy,
-    // Clipboard
+    // Browser
+    BrowserAsk,
     ClipboardMonitor,
     CatchExtensions,
     // Schedule
@@ -223,7 +224,7 @@ fn rows(page: usize, s: &Settings) -> Vec<Row> {
             Item(Id::HighLimit),
         ],
         5 => vec![Heading("Proxy"), Item(Id::ProxyMode), Item(Id::Proxy)],
-        6 => vec![Heading("Links you copy"), Item(Id::ClipboardMonitor), Item(Id::CatchExtensions)],
+        6 => vec![Heading("Links from the browser extension"), Item(Id::BrowserAsk), Gap, Heading("Links you copy"), Item(Id::ClipboardMonitor), Item(Id::CatchExtensions)],
         7 => vec![Item(Id::ScheduleEnabled), Gap, Item(Id::ScheduleStart), Item(Id::ScheduleStop), Gap, Days],
         _ => vec![
             Heading("After the last download"),
@@ -249,7 +250,7 @@ enum Type {
 fn type_of(id: Id) -> Type {
     use Id::*;
     match id {
-        FollowSystem | SortByCategory | StartImmediately | RememberFolder | ConfirmRemove | ClipboardMonitor | ScheduleEnabled | Day(_)
+        FollowSystem | SortByCategory | StartImmediately | RememberFolder | ConfirmRemove | BrowserAsk | ClipboardMonitor | ScheduleEnabled | Day(_)
         | PreventSleep | NotifyDone | VerifyChecksums => Type::Check,
         Scheme | LightScheme | DarkScheme | FrameStyle | Font | FontStyle | OnConflict | Traffic | ProxyMode | WhenDone => Type::Combo,
         FontSize | LineSpacing | ForgetAfter | MaxActive | Connections | MinSegment | Retries | RetryDelay | Timeout | LowLimit | LowMaxActive
@@ -291,6 +292,7 @@ fn label(id: Id) -> String {
         LowMaxActive => "Downloads at once".into(),
         ProxyMode => "Connect".into(),
         Proxy => "Proxy address".into(),
+        BrowserAsk => "Show the Add dialog first".into(),
         ClipboardMonitor => "Offer links copied to the clipboard".into(),
         CatchExtensions => "File types to offer".into(),
         ScheduleEnabled => "Download on a schedule".into(),
@@ -337,6 +339,7 @@ fn hint(id: Id) -> &'static str {
         LowMaxActive => "In low mode, at most this many downloads run at once.",
         ProxyMode => "System: the proxy in the environment (HTTPS_PROXY, ALL_PROXY…). Manual: the address below.",
         Proxy => "Like http://proxy:8080 or socks5://user:password@host:1080.",
+        BrowserAsk => "Off: links and downloads from the browser go straight into the list, started as set under Downloads.",
         ClipboardMonitor => "When you copy a link to a file of a type below, the Add dialog opens with it.",
         CatchExtensions => "File name endings, separated by spaces.",
         ScheduleEnabled => "Queued downloads wait for the start time; running ones pause at the pause time and go on next time.",
@@ -362,6 +365,7 @@ fn check_value(s: &Settings, id: Id) -> bool {
         StartImmediately => s.start_immediately,
         RememberFolder => s.remember_last_folder,
         ConfirmRemove => s.confirm_remove,
+        BrowserAsk => s.browser_ask,
         ClipboardMonitor => s.clipboard_monitor,
         ScheduleEnabled => s.schedule_enabled,
         Day(d) => s.schedule_days[d % 7],
@@ -380,6 +384,7 @@ fn toggle(s: &mut Settings, id: Id) {
         StartImmediately => s.start_immediately ^= true,
         RememberFolder => s.remember_last_folder ^= true,
         ConfirmRemove => s.confirm_remove ^= true,
+        BrowserAsk => s.browser_ask ^= true,
         ClipboardMonitor => s.clipboard_monitor ^= true,
         ScheduleEnabled => s.schedule_enabled ^= true,
         Day(d) => s.schedule_days[d % 7] ^= true,
@@ -679,6 +684,7 @@ fn reset_page(app: &mut App, page: usize) {
             s.proxy = def.proxy;
         }
         6 => {
+            s.browser_ask = def.browser_ask;
             s.clipboard_monitor = def.clipboard_monitor;
             s.catch_extensions = def.catch_extensions;
         }
