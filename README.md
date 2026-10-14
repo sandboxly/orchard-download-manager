@@ -39,6 +39,15 @@ On macOS also:
 brew install --cask sandboxly/tap/orchard-download-manager
 ```
 
+**Omarchy and other Arch-based systems** — one command, no root except for runtime libraries:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sandboxly/orchard-download-manager/main/packaging/omarchy/install.sh | bash
+```
+
+Add `-s -- --bind --free-f9` after `bash` to bind Super+Ctrl+Shift+D and free F9 (Settings) from
+Omarchy's dictation key; `-s -- --uninstall` removes it. Rerun the command to update.
+
 ## Building
 
 ```sh
