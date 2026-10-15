@@ -1664,11 +1664,11 @@ dependencies = [
  "chrono",
  "dirs",
  "embed-resource",
- "image",
  "log",
  "md-5",
  "orchard-grid",
  "orchard-kit",
+ "orchard-shell",
  "orchard-theme",
  "percent-encoding",
  "serde",
@@ -1683,8 +1683,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-grid"
-version = "0.1.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.1.0#78223f7a774852a5607283890151d5cccf96d309"
+version = "0.2.0"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.2.0#872e58780b6d13d08d06ea0b1b5e5ec1f8519fed"
 dependencies = [
  "bytemuck",
  "fontdb",
@@ -1703,8 +1703,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-kit"
-version = "0.1.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.1.0#78223f7a774852a5607283890151d5cccf96d309"
+version = "0.2.0"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.2.0#872e58780b6d13d08d06ea0b1b5e5ec1f8519fed"
 dependencies = [
  "arboard",
  "orchard-grid",
@@ -1712,9 +1712,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "orchard-shell"
+version = "0.2.0"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.2.0#872e58780b6d13d08d06ea0b1b5e5ec1f8519fed"
+dependencies = [
+ "dirs",
+ "image",
+ "log",
+ "orchard-grid",
+ "orchard-kit",
+ "serde",
+ "serde_json",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "orchard-theme"
-version = "0.1.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.1.0#78223f7a774852a5607283890151d5cccf96d309"
+version = "0.2.0"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.2.0#872e58780b6d13d08d06ea0b1b5e5ec1f8519fed"
 dependencies = [
  "dirs",
  "orchard-grid",
