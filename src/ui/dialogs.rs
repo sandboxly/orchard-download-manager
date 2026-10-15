@@ -5,17 +5,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use oc_grid::{CellRect, Frame, Style};
+use orchard_grid::{CellRect, Frame, Style};
+use orchard_kit::input::{KeyEvent, MouseEvent, Named};
+use orchard_kit::widgets::{BoxFrame, DrawCtx, TextField, put, width};
 
 use crate::app::{App, Modal};
 use crate::checksum::{self, Algo, Expected};
 use crate::download::Status;
 use crate::format;
-use crate::input::{KeyEvent, MouseEvent, Named};
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
 use crate::ui::picker::{FolderPicker, Outcome};
-use crate::ui::widgets::{BoxFrame, DrawCtx, TextField, put, width};
 
 // ---------------------------------------------------------------------------
 // Remove

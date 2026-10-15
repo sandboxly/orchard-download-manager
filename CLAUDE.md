@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Orchard Download Manager: a download manager from the Orchard family (segmented, resumable HTTP(S) downloads, a queue, speed limits, a scheduler, clipboard monitoring, checksums). Like Orchard Commander and Orchard Music Player it is a GPU-drawn desktop app (winit + wgpu) styled as a character grid, not a TUI. It reuses Commander's crates (`oc-grid` renderer, `oc-config` color schemes) as git dependencies pinned to a Commander release tag; to work on them together, add a `[patch]` section pointing at a local checkout (`../orchard-commander`).
+Orchard Download Manager: a download manager from the Orchard family (segmented, resumable HTTP(S) downloads, a queue, speed limits, a scheduler, clipboard monitoring, checksums). Like Orchard Commander and Orchard Music Player it is a GPU-drawn desktop app (winit + wgpu) styled as a character grid, not a TUI. It uses the Orchard apps' shared crates from Orchard Commons (`orchard-grid` renderer; `orchard-theme` color schemes, `Theme` and the color-schemes folder shared with Commander; `orchard-kit` background tasks, input events, winit key conversion, widgets and the clipboard's text) as git dependencies pinned to a release tag; to work on them together, add a `[patch."https://github.com/sandboxly/orchard-commons"]` section pointing at a local checkout (`../orchard-commons/crates/…`) in an uncommitted cargo config (`.cargo/config.toml` is tracked here).
 
 ## Commands
 
@@ -25,10 +25,10 @@ cargo run -- --screenshot /tmp/x.png --size 120x40 --dialog settings:speed   # l
 
 ## Architecture
 
-- `app.rs` owns all state and logic (the list, the queue and schedule, engine events, keys); `ui/` draws it as a pure function into an `oc_grid::Frame` and holds the dialogs; `main.rs` owns only the window, input conversion and wake-ups.
+- `app.rs` owns all state and logic (the list, the queue and schedule, engine events, keys); `ui/` draws it as a pure function into an `orchard_grid::Frame` and holds the dialogs; `main.rs` owns only the window, input conversion and wake-ups.
 - `engine/`: one controller thread per running download plus a thread per connection (plain threads, `ureq`, no async). Segments are split dynamically: a connection that finishes takes over half of the largest remaining segment. Bytes go to "<name>.part" by offset; `Shared` holds live progress, which the UI reads. Events come back through a callback that posts to the UI thread. `engine/tests.rs` has the local test server (ranges, throttling, broken connections, statuses) that the app tests reuse.
-- `ui/form.rs`: the form controls shared by all dialogs (text, check, combo, spin, button; focus and keys). `ui/settings.rs` is data-driven: a setting is an `Id` with a label, hint, type and get/set; add one there and to `Settings`.
-- Blocking work (probing a link, checksums, deleting files) goes through `tasks.rs`, never the UI thread.
+- `ui/form.rs`: the form controls shared by all dialogs, on top of `orchard_kit::widgets` (text, check, combo, spin, button; focus and keys). `ui/settings.rs` is data-driven: a setting is an `Id` with a label, hint, type and get/set; add one there and to `Settings`.
+- Blocking work (probing a link, checksums, deleting files) goes through `app.tasks` (`orchard_kit::tasks`), never the UI thread.
 - `native_host.rs` + `extension/chrome/`: the browser extension talks to the app's helper mode (started by the browser with a `chrome-extension://…/` argument, detected first thing in `main`): length-prefixed JSON on stdin/stdout, links with their headers (cookies, referrer, user agent) forwarded through `ipc.rs` as a `Handoff`. The app writes the helper's manifest for installed browsers on every start (Windows: registry), except with `ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR` set. The extension's shared logic is in `extension/chrome/common/` (no browser calls in `rules.js`; `node --test extension/test/*.test.mjs`). Cookies are kept in `downloads.json` (owner-only) and must never be logged or shown.
 - `ipc.rs`: a second start hands its links to the running app over a local socket (`instance.json` with a token in the config folder).
 

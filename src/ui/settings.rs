@@ -9,18 +9,18 @@
 //! a text field applies its text when the focus leaves it or on Enter.
 //! Esc closes (applying the field being edited).
 
-use oc_config::themes::{self, FONT_SIZE_RANGE, FRAME_STYLES, LINE_SPACING_RANGE};
-use oc_grid::{CellRect, Frame, Style};
+use orchard_grid::{CellRect, Frame, Style};
+use orchard_kit::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
+use orchard_kit::widgets::{DrawCtx, TextField, contains, fill, put_elided};
+use orchard_theme::schemes::{FONT_SIZE_RANGE, FRAME_STYLES, LINE_SPACING_RANGE, is_builtin};
 
 use crate::app::{App, Modal};
 use crate::category::Category;
 use crate::format;
-use crate::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
 use crate::settings::{self, Conflict, ProxyMode, Settings, Traffic, WhenDone};
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Choice, Ctl, Form, Kind, Popup, PopupOutcome, TextKind};
 use crate::ui::picker::{FolderPicker, Outcome};
-use crate::ui::widgets::{DrawCtx, TextField, contains, fill, put_elided};
 
 pub const PAGES: [&str; 9] = ["Appearance", "Downloads", "Categories", "Connections", "Speed", "Network", "Browser", "Schedule", "When done"];
 
@@ -139,8 +139,8 @@ pub struct SettingsDialog {
 /// Open Settings, on `page` if given.
 pub fn open(app: &mut App, page: Option<usize>) {
     load_fonts(app);
-    let all = crate::theme::all_schemes();
-    let (builtin, user): (Vec<_>, Vec<_>) = all.into_iter().map(|s| s.name).partition(|n| themes::is_builtin(n));
+    let all = orchard_theme::dirs::all_schemes();
+    let (builtin, user): (Vec<_>, Vec<_>) = all.into_iter().map(|s| s.name).partition(|n| is_builtin(n));
     let mut schemes: Vec<Choice> = builtin.into_iter().map(Some).collect();
     if !user.is_empty() {
         schemes.push(None);
@@ -154,7 +154,7 @@ fn load_fonts(app: &mut App) {
     if app.fonts.is_some() {
         return;
     }
-    app.tasks.spawn(|| oc_grid::FontLibrary::system().families(true), |app, fonts| app.fonts = Some(fonts));
+    app.tasks.spawn(|| orchard_grid::FontLibrary::system().families(true), |app, fonts| app.fonts = Some(fonts));
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +425,7 @@ fn combo(app: &App, d: &SettingsDialog, id: Id) -> (Vec<Choice>, usize) {
             let mut styles: Vec<Choice> = vec![Some("Regular".into())];
             let family = if s.font_family.is_empty() { app.theme.font.family.clone() } else { s.font_family.clone() };
             if app.fonts.is_some() {
-                styles.extend(oc_grid::FontLibrary::system().styles(&family).into_iter().filter(|x| x != "Regular").map(Some));
+                styles.extend(orchard_grid::FontLibrary::system().styles(&family).into_iter().filter(|x| x != "Regular").map(Some));
             }
             let cur = if s.font_style.is_empty() { "Regular" } else { &s.font_style };
             if !styles.iter().any(|x| x.as_deref() == Some(cur)) {

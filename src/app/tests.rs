@@ -4,9 +4,10 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use orchard_kit::input::Mods;
+
 use super::*;
 use crate::engine::tests::{ServerOpts, data, serve};
-use crate::input::Mods;
 
 fn app(dir: &Path) -> App {
     let mut app = App::new(Arc::new(|| {}), false);
@@ -344,12 +345,12 @@ fn every_dialog_draws_at_small_sizes() {
                 4 => app.modal = Some(Modal::Help),
                 _ => app.modal = None,
             }
-            let mut f = oc_grid::Frame::new(cols, rows, app.theme.colors.background);
+            let mut f = orchard_grid::Frame::new(cols, rows, app.theme.colors.background);
             ui::draw(&app, &mut f);
         }
         for page in 0..ui::settings::PAGES.len() {
             ui::settings::open(&mut app, Some(page));
-            let mut f = oc_grid::Frame::new(cols, rows, app.theme.colors.background);
+            let mut f = orchard_grid::Frame::new(cols, rows, app.theme.colors.background);
             ui::draw(&app, &mut f);
         }
     }

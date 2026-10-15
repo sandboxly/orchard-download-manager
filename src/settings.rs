@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use oc_config::themes::Appearance;
+use orchard_theme::schemes::Appearance;
 use serde::{Deserialize, Serialize};
 
 use crate::category::Category;

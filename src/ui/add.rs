@@ -7,18 +7,18 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use oc_grid::{CellRect, Frame};
+use orchard_grid::{CellRect, Frame};
+use orchard_kit::input::{KeyEvent, MouseEvent};
+use orchard_kit::widgets::{DrawCtx, TextField};
 
 use crate::app::{AddOptions, App, Modal};
 use crate::category::Category;
 use crate::checksum::Expected;
 use crate::engine::http::{self, Probe};
 use crate::format;
-use crate::input::{KeyEvent, MouseEvent};
 use crate::links;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
 use crate::ui::picker::{FolderPicker, Outcome};
-use crate::ui::widgets::{DrawCtx, TextField};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Id {

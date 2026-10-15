@@ -2,7 +2,8 @@
 
 A themeable, keyboard-friendly download manager from the Orchard family.
 It is drawn as a character grid on the GPU, like Orchard Commander: same
-renderer (`oc-grid`), same color schemes, same frame look.
+renderer (`orchard-grid`, from the Orchard apps' shared crates), same color
+schemes, same frame look.
 
 * Segmented downloads: up to 32 connections per file; a connection that
   finishes takes over half of the biggest part left, so all of them keep

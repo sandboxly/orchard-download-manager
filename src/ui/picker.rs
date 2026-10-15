@@ -11,12 +11,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use oc_grid::{CellRect, Frame, Style, elide_left};
+use orchard_grid::{CellRect, Frame, Style, elide_left};
+use orchard_kit::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
+use orchard_kit::tasks::Waker;
+use orchard_kit::widgets::{DrawCtx, Scrollbar, contains, fill, inset, put_elided};
 
-use crate::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
-use crate::tasks::Waker;
 use crate::ui::form::{self, ButtonRow};
-use crate::ui::widgets::{DrawCtx, Scrollbar, contains, fill, inset, put_elided};
 
 /// What the picker shows: a folder, or (Windows) the drives.
 #[derive(Clone, Debug, PartialEq, Eq)]

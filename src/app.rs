@@ -7,7 +7,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use oc_config::themes;
+use orchard_kit::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
+use orchard_kit::tasks::{Tasks, Waker};
+use orchard_kit::widgets::TextField;
+use orchard_theme::{Theme, schemes};
 
 use crate::category::Category;
 use crate::checksum::Expected;
@@ -16,12 +19,9 @@ use crate::engine::http::{self, NetConfig};
 use crate::engine::limiter::Limiter;
 use crate::engine::{self, Event, Reporter, Shared, Spec};
 use crate::format;
-use crate::input::{Key, KeyEvent, MouseEvent, MouseKind, Named};
 use crate::settings::{self, ProxyMode, Settings, WhenDone};
 use crate::system;
-use crate::tasks::{Tasks, Waker};
-use crate::theme::Theme;
-use crate::ui::{self, add::AddDialog, dialogs, settings::SettingsDialog, widgets::TextField};
+use crate::ui::{self, add::AddDialog, dialogs, settings::SettingsDialog};
 
 /// The list's status tabs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -152,7 +152,7 @@ impl App {
         let config_dir = settings::config_dir();
         let settings = if persist { Settings::load(&config_dir) } else { Settings::default() };
         let (downloads, next_id) = if persist { download::load(&config_dir) } else { (Vec::new(), 1) };
-        let theme = Theme::new(&settings.appearance(), themes::get_scheme(&crate::theme::schemes_dir(), &settings.color_scheme));
+        let theme = Theme::new(&settings.appearance(), schemes::get_scheme(&orchard_theme::dirs::schemes_dir(), &settings.color_scheme));
         let net = net_config(&settings);
         let mut app = App {
             global: Arc::new(Limiter::new(settings.speed_limit())),
@@ -317,7 +317,7 @@ impl App {
     pub fn apply_theme(&mut self) {
         let a = self.settings.appearance();
         let name = a.scheme_name(self.system_dark).to_string();
-        let scheme = themes::get_scheme(&crate::theme::schemes_dir(), &name);
+        let scheme = schemes::get_scheme(&orchard_theme::dirs::schemes_dir(), &name);
         self.theme = Theme::new(&a, scheme);
     }
 
@@ -330,7 +330,7 @@ impl App {
 
     /// ⌘+ / ⌘- / ⌘0.
     pub fn zoom(&mut self, step: i64) {
-        let (lo, hi) = themes::FONT_SIZE_RANGE;
+        let (lo, hi) = schemes::FONT_SIZE_RANGE;
         self.update_settings(|s| s.font_size = if step == 0 { settings::DEFAULT_FONT_SIZE } else { (s.font_size + step).clamp(lo, hi) });
     }
 
@@ -1188,7 +1188,7 @@ impl App {
             match &ev.key {
                 Key::Char('n') => ui::add::open(self, ""),
                 Key::Char('v') => {
-                    let text = crate::clipboard::text().unwrap_or_default();
+                    let text = orchard_kit::clipboard::text().unwrap_or_default();
                     ui::add::open(self, &crate::links::find(&text).join(" "));
                 }
                 Key::Char('c') => self.copy_link(),
@@ -1320,7 +1320,7 @@ impl App {
             return;
         }
         let l = ui::layout(self);
-        let hit = |r: oc_grid::CellRect| ui::widgets::contains(r, ev.col, ev.row);
+        let hit = |r: orchard_grid::CellRect| orchard_kit::widgets::contains(r, ev.col, ev.row);
         match ev.kind {
             MouseKind::Down => {
                 if hit(l.list) {
@@ -1341,7 +1341,7 @@ impl App {
                 } else if l.category.is_some_and(hit) {
                     self.cycle_category();
                 } else if hit(l.footer) {
-                    if let Some((_, i)) = ui::widgets::key_bar_items(l.footer, ui::FKEYS).into_iter().find(|(r, _)| ui::widgets::contains(*r, ev.col, ev.row)) {
+                    if let Some((_, i)) = orchard_kit::widgets::key_bar_items(l.footer, ui::FKEYS).into_iter().find(|(r, _)| orchard_kit::widgets::contains(*r, ev.col, ev.row)) {
                         self.fkey(i as u8 + 1);
                     }
                 } else if l.status.is_some_and(hit) {

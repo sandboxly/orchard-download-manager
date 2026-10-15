@@ -10,11 +10,11 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use oc_grid::winit;
-use oc_grid::{FontConfig, Frame, Rendered, WindowRenderer};
 use orchard_download_manager::App;
-use orchard_download_manager::input::{Key, KeyEvent, Mods, MouseEvent, MouseKind, Named};
 use orchard_download_manager::ui;
+use orchard_grid::winit;
+use orchard_grid::{FontConfig, Frame, Rendered, WindowRenderer};
+use orchard_kit::input::{KeyEvent, MouseEvent, MouseKind};
 use winit::application::ApplicationHandler;
 use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, MouseScrollDelta, StartCause, WindowEvent};
@@ -38,7 +38,7 @@ struct Win {
     title: String,
     focused: bool,
     /// The status icons the renderer has.
-    icons: std::collections::HashSet<oc_grid::ImageId>,
+    icons: std::collections::HashSet<orchard_grid::ImageId>,
 }
 
 struct Platform {
@@ -151,34 +151,14 @@ impl Platform {
     }
 }
 
+/// A key press as a [`KeyEvent`] (the kit's conversion), `None` for keys the
+/// app doesn't use. The media play/pause key is one: the kit types it as Space
+/// for the Music Player, which here would press buttons and type spaces.
 fn convert_key(ev: &winit::event::KeyEvent, mods: ModifiersState) -> Option<KeyEvent> {
-    let m = Mods { shift: mods.shift_key(), ctrl: mods.control_key(), alt: mods.alt_key(), logo: mods.super_key() };
-    let key = match ev.key_without_modifiers() {
-        WKey::Named(n) => Key::Named(match n {
-            NamedKey::ArrowUp => Named::Up,
-            NamedKey::ArrowDown => Named::Down,
-            NamedKey::ArrowLeft => Named::Left,
-            NamedKey::ArrowRight => Named::Right,
-            NamedKey::PageUp => Named::PageUp,
-            NamedKey::PageDown => Named::PageDown,
-            NamedKey::Home => Named::Home,
-            NamedKey::End => Named::End,
-            NamedKey::Enter => Named::Enter,
-            NamedKey::Escape => Named::Escape,
-            NamedKey::Backspace => Named::Backspace,
-            NamedKey::Delete => Named::Delete,
-            NamedKey::Insert => Named::Insert,
-            NamedKey::Tab => Named::Tab,
-            NamedKey::Space => return Some(KeyEvent { key: Key::Char(' '), mods: m, text: Some(" ".into()) }),
-            n => {
-                let f = format!("{n:?}");
-                Named::F(f.strip_prefix('F').and_then(|d| d.parse::<u8>().ok())?)
-            }
-        }),
-        WKey::Character(s) => Key::Char(s.chars().next()?.to_lowercase().next()?),
-        _ => return None,
-    };
-    Some(KeyEvent { key, mods: m, text: ev.text.as_ref().map(|t| t.to_string()) })
+    if ev.key_without_modifiers() == WKey::Named(NamedKey::MediaPlayPause) {
+        return None;
+    }
+    orchard_kit::winit::convert_key(ev, mods)
 }
 
 impl ApplicationHandler<UserEvent> for Platform {
@@ -460,7 +440,7 @@ fn main() -> ExitCode {
         }
     };
     let proxy = Mutex::new(event_loop.create_proxy());
-    let wake: orchard_download_manager::tasks::Waker = Arc::new(move || {
+    let wake: orchard_kit::tasks::Waker = Arc::new(move || {
         let _ = proxy.lock().unwrap().send_event(UserEvent::Wake);
     });
     let app = App::new(wake, true);

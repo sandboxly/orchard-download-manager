@@ -1,4 +1,4 @@
-//! Drawing: a pure function of the app state into an `oc_grid::Frame`.
+//! Drawing: a pure function of the app state into an `orchard_grid::Frame`.
 //! The layout is recomputed, never stored; mouse hit testing uses it too.
 
 pub mod add;
@@ -6,19 +6,18 @@ pub mod dialogs;
 pub mod form;
 pub mod picker;
 pub mod settings;
-pub mod widgets;
 
-use oc_grid::{CellRect, Flags, Frame, ImagePlacement, Layer, PxRect, Rgba, Style, elide_left, elide_right};
+use orchard_grid::{CellRect, Flags, Frame, ImagePlacement, Layer, PxRect, Rgba, Style, elide_left, elide_right};
+use orchard_kit::input::{KeyEvent, MouseEvent};
+use orchard_kit::widgets::{self, BoxFrame, DrawCtx, Scrollbar, contains, draw_key_bar, fill, inset, put, width};
+use orchard_theme::mix;
 
 use crate::app::{App, Modal, Tab};
 use crate::download::{Download, Status};
 use crate::engine::UNKNOWN_END;
 use crate::format;
 use crate::icons::{self, Icon};
-use crate::input::{KeyEvent, MouseEvent};
 use crate::settings::Traffic;
-use crate::theme::mix;
-use widgets::{BoxFrame, DrawCtx, Scrollbar, contains, draw_key_bar, fill, inset, put, width};
 
 pub const FKEYS: &[(&str, &str)] = &[
     ("F1", "Help"),
@@ -251,7 +250,7 @@ fn put_right(f: &mut Frame, x: u16, row: u16, w: u16, text: &str, style: Style) 
     put(f, x + w.saturating_sub(tw), row, &t, style, w);
 }
 
-fn status_icon(d: &Download, c: &crate::theme::Colors) -> (Icon, Rgba) {
+fn status_icon(d: &Download, c: &orchard_theme::Colors) -> (Icon, Rgba) {
     match d.status {
         Status::Running => (Icon::Running, c.accent),
         Status::Queued => (Icon::Queued, c.muted),
@@ -271,7 +270,7 @@ pub fn draw_icon(f: &mut Frame, r: CellRect, icon: Icon, color: Rgba, ctx: &Draw
 }
 
 /// The last column: time left, or what the download is doing.
-fn state_text(d: &Download, c: &crate::theme::Colors) -> (String, Rgba) {
+fn state_text(d: &Download, c: &orchard_theme::Colors) -> (String, Rgba) {
     match d.status {
         Status::Running if d.run.as_ref().is_some_and(|r| r.stopping) => ("Pausing…".into(), c.muted),
         Status::Running => match d.eta() {
@@ -595,7 +594,7 @@ pub fn modal_mouse(app: &mut App, ev: &MouseEvent) {
         Modal::Remove(mut r) => r.mouse(app, ev).then_some(Modal::Remove(r)),
         Modal::Properties(mut p) => p.mouse(app, ev).then_some(Modal::Properties(p)),
         Modal::Checksum(mut c) => c.mouse(app, ev).then_some(Modal::Checksum(c)),
-        Modal::Help => (!matches!(ev.kind, crate::input::MouseKind::Down)).then_some(Modal::Help),
+        Modal::Help => (!matches!(ev.kind, orchard_kit::input::MouseKind::Down)).then_some(Modal::Help),
     };
     if app.modal.is_none() {
         app.modal = next;

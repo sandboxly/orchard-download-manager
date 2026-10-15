@@ -1,13 +1,9 @@
-//! The clipboard: reading it for paste, and watching it for copied links.
+//! The clipboard, watched for copied links (reading it for paste is
+//! `orchard_kit::clipboard::text`).
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-
-/// The clipboard's text, if any.
-pub fn text() -> Option<String> {
-    arboard::Clipboard::new().ok()?.get_text().ok().filter(|t| !t.is_empty())
-}
 
 /// Calls `changed` with the clipboard's text whenever it changes, while
 /// `on` is set (checked about once a second, on its own thread). What is

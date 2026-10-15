@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use oc_grid::{Frame, HeadlessRenderer};
+use orchard_grid::{Frame, HeadlessRenderer};
 use orchard_download_manager::App;
 use orchard_download_manager::app::Modal;
 use orchard_download_manager::checksum::Expected;
@@ -93,7 +93,7 @@ pub fn run(args: &[String]) -> ExitCode {
                 ui::settings::PAGES.iter().position(|x| x.to_lowercase().starts_with(&p))
             });
             ui::settings::open(&mut app, page);
-            app.fonts = Some(oc_grid::FontLibrary::system().families(true));
+            app.fonts = Some(orchard_grid::FontLibrary::system().families(true));
         }
         Some("remove") => app.ask_remove(true),
         Some("properties") => ui::dialogs::open_properties(&mut app),
@@ -118,7 +118,7 @@ pub fn run(args: &[String]) -> ExitCode {
 }
 
 /// PNG, or lossless WebP for a `.webp` name.
-fn save(img: &oc_grid::RgbaImage, out: &Path) -> Result<(), String> {
+fn save(img: &orchard_grid::RgbaImage, out: &Path) -> Result<(), String> {
     let webp = out.extension().is_some_and(|e| e.eq_ignore_ascii_case("webp"));
     if !webp {
         return img.save_png(out).map_err(|e| e.to_string());

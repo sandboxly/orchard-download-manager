@@ -9,7 +9,7 @@
 
 use std::collections::HashSet;
 
-use oc_grid::{Frame, ImageId, Rgba};
+use orchard_grid::{Frame, ImageId, Rgba};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Icon {
