@@ -1,11 +1,14 @@
 //! `--screenshot OUT.png|OUT.webp`: a state drawn headlessly (docs, and
 //! checking the look without a window): a demo list with downloads in
-//! every state, and any dialog.
+//! every state, and any dialog, with its folder picker open.
 
 use std::process::ExitCode;
-use std::sync::Arc;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use orchard_grid::Frame;
+use orchard_kit::input::{KeyEvent, Mods};
 use orchard_download_manager::App;
 use orchard_download_manager::app::Modal;
 use orchard_download_manager::checksum::Expected;
@@ -20,6 +23,10 @@ use orchard_shell::shot;
 struct Options {
     empty: bool,
     cursor: usize,
+    /// The dialog's folder picker ("Choose…").
+    picker: bool,
+    /// The picker's bookmark menu (⌘D / Ctrl+D).
+    picker_menu: bool,
 }
 
 pub fn run(args: &[String]) -> ExitCode {
@@ -27,12 +34,21 @@ pub fn run(args: &[String]) -> ExitCode {
     let shot = match shot::parse(args, (120, 40), |a, it| match a {
         "--empty" => o.empty = true,
         "--cursor" => o.cursor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0),
+        "--picker" => o.picker = true,
+        "--picker-menu" => (o.picker, o.picker_menu) = (true, true),
         _ => {}
     }) {
         Ok(s) => s,
         Err(code) => return code,
     };
-    let mut app = App::new(Arc::new(|| {}), false);
+    let (tx, rx) = mpsc::channel();
+    let tx = Mutex::new(tx);
+    let mut app = App::new(
+        Arc::new(move || {
+            let _ = tx.lock().unwrap().send(());
+        }),
+        false,
+    );
     if let Some(t) = &shot.theme {
         let name = t.clone();
         app.update_settings(|s| s.color_scheme = name);
@@ -79,6 +95,9 @@ pub fn run(args: &[String]) -> ExitCode {
         Some("properties") => ui::dialogs::open_properties(&mut app),
         _ => {}
     }
+    if o.picker {
+        open_picker(&mut app, o.picker_menu, &rx);
+    }
     let mut frame = Frame::new(cols, rows, app.theme.colors.background);
     ui::draw(&app, &mut frame);
     let renderer = r.renderer();
@@ -88,6 +107,28 @@ pub fn run(args: &[String]) -> ExitCode {
         }
     });
     shot::finish(&mut r, &frame, &shot.out)
+}
+
+/// Press the dialog's "Choose…" and wait for the picker's listing, places
+/// and bookmarks (a few seconds at most).
+fn open_picker(app: &mut App, menu: bool, rx: &mpsc::Receiver<()>) {
+    let mut modal = app.modal.take();
+    match &mut modal {
+        Some(Modal::Add(a)) => ui::add::choose(app, a),
+        Some(Modal::Properties(p)) => p.choose(app),
+        Some(Modal::Settings(d)) => ui::settings::choose_folder(app, d, ui::settings::Folder::Downloads),
+        _ => {}
+    }
+    app.modal = modal;
+    let until = Instant::now() + Duration::from_secs(5);
+    while app.modal.as_mut().and_then(Modal::picker).is_some_and(|p| p.loading()) && Instant::now() < until {
+        let _ = rx.recv_timeout(until.saturating_duration_since(Instant::now()));
+        app.process();
+    }
+    if menu {
+        let d = KeyEvent::char('d').with(Mods { ctrl: true, logo: true, ..Default::default() });
+        app.handle_key(&d);
+    }
 }
 
 const MB: u64 = 1024 * 1024;

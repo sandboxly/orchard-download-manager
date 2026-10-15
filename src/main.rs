@@ -143,7 +143,7 @@ impl ShellApp for Shell {
 }
 
 fn usage() -> &'static str {
-    "usage: orchard-download-manager [LINK]...\n       orchard-download-manager --version | --self-test\n       orchard-download-manager --screenshot OUT.png [--size COLSxROWS] [--theme NAME] [--dialog add|settings[:PAGE]|remove|properties|checksum|help] [--empty]"
+    "usage: orchard-download-manager [LINK]...\n       orchard-download-manager --version | --self-test\n       orchard-download-manager --screenshot OUT.png [--size COLSxROWS] [--theme NAME] [--dialog add|batch|settings[:PAGE]|remove|properties|checksum|help] [--picker|--picker-menu] [--empty] [--cursor N]"
 }
 
 /// `--self-test`: downloading and drawing work in this build (for
