@@ -4,7 +4,6 @@
 //! older files keep loading.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use orchard_theme::schemes::Appearance;
@@ -14,11 +13,7 @@ use crate::category::Category;
 
 /// `$ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR`, or the platform's config folder.
 pub fn config_dir() -> PathBuf {
-    if let Some(d) = std::env::var_os("ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR").filter(|d| !d.is_empty()) {
-        return PathBuf::from(d);
-    }
-    let name = if cfg!(target_os = "linux") { "orchard-download-manager" } else { "Orchard Download Manager" };
-    dirs::config_dir().unwrap_or_else(std::env::temp_dir).join(name)
+    orchard_shell::config::app_config_dir("ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR", "orchard-download-manager", "Orchard Download Manager")
 }
 
 /// The font size unless changed (Commander's is 13; a little larger here,
@@ -249,17 +244,11 @@ impl Settings {
     }
 
     pub fn load(dir: &Path) -> Settings {
-        fs::read_to_string(dir.join("settings.json"))
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
+        orchard_shell::config::load_json(&dir.join("settings.json"))
     }
 
     pub fn save(&self, dir: &Path) -> std::io::Result<()> {
-        fs::create_dir_all(dir)?;
-        let tmp = dir.join("settings.json.tmp");
-        fs::write(&tmp, serde_json::to_string_pretty(self).unwrap_or_default())?;
-        fs::rename(tmp, dir.join("settings.json"))
+        orchard_shell::config::save_json(&dir.join("settings.json"), self)
     }
 
     /// The folder downloads go to unless sorted by category.
@@ -310,6 +299,8 @@ pub fn parse_hhmm(s: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
 
     #[test]

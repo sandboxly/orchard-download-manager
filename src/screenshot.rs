@@ -2,74 +2,54 @@
 //! checking the look without a window): a demo list with downloads in
 //! every state, and any dialog.
 
-use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use orchard_grid::{Frame, HeadlessRenderer};
+use orchard_grid::Frame;
 use orchard_download_manager::App;
 use orchard_download_manager::app::Modal;
 use orchard_download_manager::checksum::Expected;
 use orchard_download_manager::download::{Download, Run, Status};
 use orchard_download_manager::engine::{Segment, Shared};
 use orchard_download_manager::ui;
+use orchard_shell::shot;
 
+/// The options only this app's screenshots have (the common ones are
+/// `orchard_shell::shot`'s).
 #[derive(Default)]
 struct Options {
-    size: (u16, u16),
-    theme: Option<String>,
-    modal: Option<String>,
     empty: bool,
     cursor: usize,
 }
 
-fn parse(args: &[String]) -> Options {
-    let mut o = Options { size: (120, 40), cursor: 0, ..Options::default() };
-    let mut it = args.iter();
-    while let Some(a) = it.next() {
-        match a.as_str() {
-            "--size" => {
-                if let Some((c, r)) = it.next().and_then(|s| s.split_once('x')) {
-                    o.size = (c.parse().unwrap_or(o.size.0), r.parse().unwrap_or(o.size.1));
-                }
-            }
-            "--theme" => o.theme = it.next().cloned(),
-            "--dialog" => o.modal = it.next().cloned(),
-            "--empty" => o.empty = true,
-            "--cursor" => o.cursor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0),
-            _ => {}
-        }
-    }
-    o
-}
-
 pub fn run(args: &[String]) -> ExitCode {
-    let Some(out) = args.first().map(PathBuf::from) else {
-        eprintln!("--screenshot needs an output file");
-        return ExitCode::FAILURE;
+    let mut o = Options::default();
+    let shot = match shot::parse(args, (120, 40), |a, it| match a {
+        "--empty" => o.empty = true,
+        "--cursor" => o.cursor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0),
+        _ => {}
+    }) {
+        Ok(s) => s,
+        Err(code) => return code,
     };
-    let o = parse(&args[1..]);
     let mut app = App::new(Arc::new(|| {}), false);
-    if let Some(t) = &o.theme {
+    if let Some(t) = &shot.theme {
         let name = t.clone();
         app.update_settings(|s| s.color_scheme = name);
     }
-    let mut r = match HeadlessRenderer::new(app.theme.font.clone(), 2.0) {
+    let mut r = match shot::renderer(app.theme.font.clone()) {
         Ok(r) => r,
-        Err(e) => {
-            eprintln!("renderer: {e}");
-            return ExitCode::FAILURE;
-        }
+        Err(code) => return code,
     };
-    let m = r.renderer().metrics();
-    app.resized(o.size.0, o.size.1, (m.width as f32, m.height as f32));
+    let (cols, rows) = shot.size;
+    app.resized(cols, rows, shot::cell_px(&mut r));
     if !o.empty {
         demo(&mut app);
         let id = app.downloads.get(o.cursor).map(|d| d.id);
         app.cursor = id;
         app.scroll_to_cursor();
     }
-    match o.modal.as_deref() {
+    match shot.dialog.as_deref() {
         Some("help") => app.modal = Some(Modal::Help),
         Some("add") => {
             ui::add::open(&mut app, "https://downloads.example.org/releases/orchard-commander-2.0.1-macOS.dmg");
@@ -99,7 +79,7 @@ pub fn run(args: &[String]) -> ExitCode {
         Some("properties") => ui::dialogs::open_properties(&mut app),
         _ => {}
     }
-    let mut frame = Frame::new(o.size.0, o.size.1, app.theme.colors.background);
+    let mut frame = Frame::new(cols, rows, app.theme.colors.background);
     ui::draw(&app, &mut frame);
     let renderer = r.renderer();
     orchard_download_manager::icons::upload_missing(&frame, &mut Default::default(), |id, w, h, rgba| {
@@ -107,24 +87,7 @@ pub fn run(args: &[String]) -> ExitCode {
             eprintln!("icon: {e}");
         }
     });
-    let saved = r.render(&frame).map_err(|e| e.to_string()).and_then(|img| save(&img, &out));
-    match saved {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            eprintln!("screenshot: {e}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-/// PNG, or lossless WebP for a `.webp` name.
-fn save(img: &orchard_grid::RgbaImage, out: &Path) -> Result<(), String> {
-    let webp = out.extension().is_some_and(|e| e.eq_ignore_ascii_case("webp"));
-    if !webp {
-        return img.save_png(out).map_err(|e| e.to_string());
-    }
-    let buf = image::RgbaImage::from_raw(img.width, img.height, img.data.clone()).ok_or("bad image size")?;
-    buf.save_with_format(out, image::ImageFormat::WebP).map_err(|e| e.to_string())
+    shot::finish(&mut r, &frame, &shot.out)
 }
 
 const MB: u64 = 1024 * 1024;
