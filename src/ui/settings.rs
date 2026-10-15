@@ -20,7 +20,7 @@ use crate::format;
 use crate::settings::{self, Conflict, ProxyMode, Settings, Traffic, WhenDone};
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Choice, Ctl, Form, Kind, Popup, PopupOutcome, TextKind};
-use crate::ui::picker::{FolderPicker, Outcome};
+use orchard_kit::picker::{Outcome, Picker};
 
 pub const PAGES: [&str; 9] = ["Appearance", "Downloads", "Categories", "Connections", "Speed", "Network", "Browser", "Schedule", "When done"];
 
@@ -133,7 +133,7 @@ pub struct SettingsDialog {
     schemes: Vec<Choice>,
     /// Why the last text didn't apply.
     pub problem: Option<String>,
-    picker: Option<(Folder, FolderPicker)>,
+    pub(crate) picker: Option<(Folder, Picker)>,
 }
 
 /// Open Settings, on `page` if given.
@@ -817,8 +817,8 @@ pub fn draw(app: &App, d: &SettingsDialog, f: &mut Frame, ctx: &DrawCtx) {
     }
     let form = layout(app, d, &r);
     let focus = match d.focus {
-        Focus::Ctl(id) => Some(id),
-        Focus::Sections => None,
+        Focus::Ctl(id) if d.picker.is_none() => Some(id),
+        _ => None,
     };
     form.draw(f, focus, ctx);
     let (text, kind) = match (&d.problem, focus) {
@@ -842,9 +842,8 @@ pub fn draw(app: &App, d: &SettingsDialog, f: &mut Frame, ctx: &DrawCtx) {
 /// The folder picker for a folder setting answered.
 fn picked(app: &mut App, d: &mut SettingsDialog, folder: Folder, out: Outcome) {
     match out {
-        Outcome::Keep => {}
         Outcome::Cancel => d.picker = None,
-        Outcome::Chosen(p) => {
+        Outcome::Folder(p) => {
             d.picker = None;
             d.editing = None;
             match commit_text(app, folder.field(), &p.to_string_lossy()) {
@@ -852,6 +851,7 @@ fn picked(app: &mut App, d: &mut SettingsDialog, folder: Folder, out: Outcome) {
                 Err(e) => d.problem = Some(e),
             }
         }
+        _ => {}
     }
 }
 
@@ -1027,6 +1027,19 @@ pub fn mouse(app: &mut App, d: &mut SettingsDialog, ev: &MouseEvent) -> bool {
     act_on(app, d, act, &form)
 }
 
+/// "Choose…" next to a folder setting: the folder picker, at the folder set
+/// or the one used without it.
+pub fn choose_folder(app: &App, d: &mut SettingsDialog, folder: Folder) {
+    let start = match text_value(&app.settings, folder.field()) {
+        t if t.is_empty() => match folder {
+            Folder::Downloads => app.settings.base_dir(),
+            Folder::Category(c) => app.settings.base_dir().join(c.label()),
+        },
+        t => expand_tilde(&t),
+    };
+    d.picker = Some((folder, crate::ui::folder_picker(app, &start)));
+}
+
 fn act_on(app: &mut App, d: &mut SettingsDialog, act: Act<Id>, form: &Form<Id>) -> bool {
     match act {
         Act::Escape | Act::Press(Id::Close) => {
@@ -1035,14 +1048,7 @@ fn act_on(app: &mut App, d: &mut SettingsDialog, act: Act<Id>, form: &Form<Id>) 
         }
         Act::Press(Id::Choose(folder)) => {
             d.commit(app);
-            let start = match text_value(&app.settings, folder.field()) {
-                t if t.is_empty() => match folder {
-                    Folder::Downloads => app.settings.base_dir(),
-                    Folder::Category(c) => app.settings.base_dir().join(c.label()),
-                },
-                t => expand_tilde(&t),
-            };
-            d.picker = Some((folder, FolderPicker::new(&start, app.tasks.waker())));
+            choose_folder(app, d, folder);
         }
         Act::Press(Id::ResetPage) => {
             d.editing = None;

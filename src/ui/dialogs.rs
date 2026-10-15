@@ -15,7 +15,7 @@ use crate::download::Status;
 use crate::format;
 use crate::ui::add::expand_tilde;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
-use crate::ui::picker::{FolderPicker, Outcome};
+use orchard_kit::picker::{Outcome, Picker};
 
 // ---------------------------------------------------------------------------
 // Remove
@@ -150,7 +150,7 @@ pub struct Properties {
     can_move: bool,
     focus: Option<PropId>,
     error: Option<String>,
-    picker: Option<FolderPicker>,
+    pub(crate) picker: Option<Picker>,
 }
 
 pub fn open_properties(app: &mut App) {
@@ -225,7 +225,8 @@ impl Properties {
     pub fn draw(&self, app: &App, f: &mut Frame, ctx: &DrawCtx) {
         let (outer, _) = Self::rects(app);
         form::dialog_box(f, outer, "Properties", ctx);
-        self.layout(app).draw(f, self.focus, ctx);
+        // Under the picker: no caret showing through it.
+        self.layout(app).draw(f, self.focus.filter(|_| self.picker.is_none()), ctx);
         if let Some(p) = &self.picker {
             p.draw(f, crate::ui::screen(app), ctx);
         }
@@ -233,13 +234,13 @@ impl Properties {
 
     fn picked(&mut self, out: Outcome) {
         match out {
-            Outcome::Keep => {}
             Outcome::Cancel => self.picker = None,
-            Outcome::Chosen(p) => {
+            Outcome::Folder(p) => {
                 self.dir.set_text(&crate::ui::home_relative(&p));
                 self.picker = None;
                 self.focus = Some(PropId::Save);
             }
+            _ => {}
         }
     }
 
@@ -280,15 +281,21 @@ impl Properties {
         self.act(app, act)
     }
 
+    /// "Choose…": the folder picker, at the folder typed or the one the
+    /// download's type goes to.
+    pub fn choose(&mut self, app: &App) {
+        let start = match self.dir.text.trim() {
+            "" => app.get(self.id).map(|d| app.settings.dir_for(d.category())).unwrap_or_else(|| app.settings.base_dir()),
+            t => expand_tilde(t),
+        };
+        self.picker = Some(crate::ui::folder_picker(app, &start));
+    }
+
     fn act(&mut self, app: &mut App, act: Act<PropId>) -> bool {
         match act {
             Act::Escape | Act::Press(PropId::Cancel) => false,
             Act::Press(PropId::Choose) => {
-                let start = match self.dir.text.trim() {
-                    "" => app.get(self.id).map(|d| app.settings.dir_for(d.category())).unwrap_or_else(|| app.settings.base_dir()),
-                    t => expand_tilde(t),
-                };
-                self.picker = Some(FolderPicker::new(&start, app.tasks.waker()));
+                self.choose(app);
                 true
             }
             Act::Submit | Act::Press(PropId::Save) => !self.save(app),
@@ -527,6 +534,7 @@ const HELP: &[(&str, &str)] = &[
     ("F7", "Speed mode: low · medium · high"),
     ("I", "Show or hide the details"),
     ("F9  ⌘,", "Settings"),
+    ("⌘D", "In the folder picker: bookmarks"),
     ("⌘+ ⌘− ⌘0", "Font size"),
 ];
 

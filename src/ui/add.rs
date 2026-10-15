@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use orchard_grid::{CellRect, Frame};
 use orchard_kit::input::{KeyEvent, MouseEvent};
+use orchard_kit::picker::{Outcome, Picker};
 use orchard_kit::widgets::{DrawCtx, TextField};
 
 use crate::app::{AddOptions, App, Modal};
@@ -18,7 +19,6 @@ use crate::engine::http::{self, Probe};
 use crate::format;
 use crate::links;
 use crate::ui::form::{self, Act, Ctl, Form, Kind, TextKind};
-use crate::ui::picker::{FolderPicker, Outcome};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Id {
@@ -51,7 +51,7 @@ pub struct AddDialog {
     pub probe_due: Option<Instant>,
     pub lookup: Lookup,
     pub error: Option<String>,
-    pub picker: Option<FolderPicker>,
+    pub picker: Option<Picker>,
     /// Request headers by link (cookies and the page, from the browser):
     /// for the lookup and the downloads. Never shown.
     pub headers: HashMap<String, http::Headers>,
@@ -248,7 +248,8 @@ pub fn draw(app: &App, a: &AddDialog, f: &mut Frame, ctx: &DrawCtx) {
     let form = layout(app, a);
     let mut focus = a.focus;
     form.fix_focus(&mut focus);
-    form.draw(f, focus, ctx);
+    // Under the picker: no caret showing through it.
+    form.draw(f, focus.filter(|_| a.picker.is_none()), ctx);
     if let Some(p) = &a.picker {
         p.draw(f, crate::ui::screen(app), ctx);
     }
@@ -296,24 +297,30 @@ pub fn mouse(app: &mut App, a: &mut AddDialog, ev: &MouseEvent) -> bool {
 /// The folder picker closed (or not yet).
 fn picked(a: &mut AddDialog, out: Outcome) {
     match out {
-        Outcome::Keep => {}
         Outcome::Cancel => a.picker = None,
-        Outcome::Chosen(p) => {
+        Outcome::Folder(p) => {
             a.dir.set_text(&crate::ui::home_relative(&p));
             a.picker = None;
             a.focus = Some(Id::Add);
         }
+        _ => {}
     }
+}
+
+/// "Choose…": the folder picker, at the folder typed or the one the file
+/// would go to.
+pub fn choose(app: &App, a: &mut AddDialog) {
+    let start = match a.dir.text.trim() {
+        "" => app.settings.dir_for(Category::of(&auto_name(a))),
+        t => expand_tilde(t),
+    };
+    a.picker = Some(crate::ui::folder_picker(app, &start));
 }
 
 fn act_on(app: &mut App, a: &mut AddDialog, act: Act<Id>) -> bool {
     match act {
         Act::Press(Id::Choose) => {
-            let start = match a.dir.text.trim() {
-                "" => app.settings.dir_for(Category::of(&auto_name(a))),
-                t => expand_tilde(t),
-            };
-            a.picker = Some(FolderPicker::new(&start, app.tasks.waker()));
+            choose(app, a);
             true
         }
         Act::Escape | Act::Press(Id::Cancel) => false,

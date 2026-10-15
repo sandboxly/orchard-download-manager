@@ -74,6 +74,18 @@ pub enum Modal {
     Help,
 }
 
+impl Modal {
+    /// The folder picker open over the dialog.
+    pub fn picker(&mut self) -> Option<&mut orchard_kit::picker::Picker> {
+        match self {
+            Modal::Add(a) => a.picker.as_mut(),
+            Modal::Properties(p) => p.picker.as_mut(),
+            Modal::Settings(s) => s.picker.as_mut().map(|(_, p)| p),
+            Modal::Remove(_) | Modal::Checksum(_) | Modal::Help => None,
+        }
+    }
+}
+
 pub struct Toast {
     pub text: String,
     pub error: bool,
@@ -349,6 +361,10 @@ impl App {
         for done in self.tasks.take() {
             done(self);
             changed = true;
+        }
+        // A folder picker's listing, places and bookmarks.
+        if let Some(p) = self.modal.as_mut().and_then(Modal::picker) {
+            changed |= p.poll();
         }
         changed
     }

@@ -39,9 +39,8 @@ dirs = "6.0"
 log = "0.4"
 
 [target.'cfg(windows)'.dependencies]
-# Keep the system awake; drive letters; register the browser extension's
-# helper.
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Power", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Registry"] }
+# Keep the system awake; register the browser extension's helper.
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Power", "Win32_Security", "Win32_System_Registry"] }
 
 [build-dependencies]
 # The Windows icon and version resource (build.rs).

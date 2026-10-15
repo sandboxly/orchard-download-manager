@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use orchard_kit::input::Mods;
+use orchard_kit::picker::Location;
 
 use super::*;
 use crate::engine::tests::{ServerOpts, data, serve};
@@ -366,14 +367,16 @@ fn choosing_a_folder_from_the_add_dialog() {
     let Some(Modal::Add(a)) = &mut app.modal else { panic!() };
     a.focus = Some(ui::add::Id::Choose);
     key(&mut app, Named::Enter);
-    let listed = |app: &App| matches!(&app.modal, Some(Modal::Add(a)) if a.picker.as_ref().is_some_and(|p| p.listed()));
-    settle(&mut app, "listed", listed);
+    let picker = |app: &App| match &app.modal {
+        Some(Modal::Add(a)) => a.picker.as_ref().map(|p| (p.location().clone(), p.entries().is_some())),
+        _ => None,
+    };
+    settle(&mut app, "listed", |app| picker(app).is_some_and(|(_, listed)| listed));
     // Row 0 is "..", then "Sub".
     key(&mut app, Named::End);
     key(&mut app, Named::Enter);
-    settle(&mut app, "in Sub", |app| {
-        matches!(&app.modal, Some(Modal::Add(a)) if a.picker.as_ref().is_some_and(|p| p.place == ui::picker::Place::Dir(dir.path().join("Sub"))))
-    });
+    let sub = Location::Dir(dir.path().join("Sub"));
+    settle(&mut app, "in Sub", |app| picker(app).is_some_and(|(l, listed)| l == sub && listed));
     key(&mut app, Named::F(2));
     let Some(Modal::Add(a)) = &app.modal else { panic!() };
     assert!(a.picker.is_none());

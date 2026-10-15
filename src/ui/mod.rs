@@ -4,7 +4,6 @@
 pub mod add;
 pub mod dialogs;
 pub mod form;
-pub mod picker;
 pub mod settings;
 
 use orchard_grid::{CellRect, Flags, Frame, ImagePlacement, Layer, PxRect, Rgba, Style, elide_left, elide_right};
@@ -451,6 +450,17 @@ fn status_line(app: &App, d: &Download) -> (String, Rgba) {
         },
         Status::Failed => (format!("Failed: {}", d.error.as_deref().unwrap_or("unknown error")), c.error),
     }
+}
+
+/// The shared folder picker for "Choose…" next to a folder field: places,
+/// Orchard Commander's bookmarks (⌘D / Ctrl+D) and the folders, opening at
+/// `start` (or the nearest folder above it that exists). Unit tests leave
+/// the real bookmarks alone.
+pub fn folder_picker(app: &App, start: &std::path::Path) -> orchard_kit::picker::Picker {
+    let opts = orchard_kit::picker::Options::folder(start);
+    #[cfg(test)]
+    let opts = opts.bookmarks(None);
+    orchard_kit::picker::Picker::new(opts, app.tasks.waker())
 }
 
 /// "~/Downloads/x.zip".
