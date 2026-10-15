@@ -16,6 +16,9 @@ schemes, same frame look.
 * Add one link, many pasted at once, or a pattern like `img[001-120].jpg`.
 * Watches the clipboard for links to files (by type) and offers them.
 * Sorts files into a folder per type, if you like.
+* "Choose…" next to a folder field opens a folder picker with your
+  standard folders, drives and Orchard Commander's bookmarks (⌘D), and
+  can add the folder shown as a bookmark.
 * Schedule: start at night, pause in the morning, on chosen days.
 * Checksums (MD5, SHA-1, SHA-256, SHA-512): checked right after
   downloading when given, or compared by hand.
@@ -89,6 +92,7 @@ then load `extension/chrome` unpacked in `chrome://extensions`. Details in
 | F7                    | speed mode                                        |
 | I                     | details                                           |
 | F9, ⌘,                | settings                                          |
+| ⌘D                    | in the folder picker: bookmarks                   |
 
 ## Files
 

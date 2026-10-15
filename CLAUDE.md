@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Orchard Download Manager: a download manager from the Orchard family (segmented, resumable HTTP(S) downloads, a queue, speed limits, a scheduler, clipboard monitoring, checksums). Like Orchard Commander and Orchard Music Player it is a GPU-drawn desktop app (winit + wgpu) styled as a character grid, not a TUI. It uses the Orchard apps' shared crates from Orchard Commons (`orchard-grid` renderer; `orchard-theme` color schemes, `Theme` and the color-schemes folder shared with Commander; `orchard-kit` background tasks, input events, winit key conversion, widgets, dialog forms and the clipboard's text; `orchard-shell` the window and event loop, `--help`/`--version`/`--self-test`/`--screenshot`, the crash log and the settings files) as git dependencies pinned to a release tag; to work on them together, add a `[patch."https://github.com/sandboxly/orchard-commons"]` section pointing at a local checkout (`../orchard-commons/crates/…`) in an uncommitted cargo config (`.cargo/config.toml` is tracked here) and pass it as `cargo <command> --config <file>`. A patched build rewrites the orchard entries in `Cargo.lock` as path packages and fails with `--locked`: never commit that, the committed lock keeps their git source.
+Orchard Download Manager: a download manager from the Orchard family (segmented, resumable HTTP(S) downloads, a queue, speed limits, a scheduler, clipboard monitoring, checksums). Like Orchard Commander and Orchard Music Player it is a GPU-drawn desktop app (winit + wgpu) styled as a character grid, not a TUI. It uses the Orchard apps' shared crates from Orchard Commons (`orchard-grid` renderer; `orchard-theme` color schemes, `Theme` and the color-schemes folder shared with Commander; `orchard-kit` background tasks, input events, winit key conversion, widgets, dialog forms, the folder picker with places and Orchard Commander's bookmarks (`ui::folder_picker`; the app's `process` polls it) and the clipboard's text; `orchard-shell` the window and event loop, `--help`/`--version`/`--self-test`/`--screenshot`, the crash log and the settings files) as git dependencies pinned to a release tag; to work on them together, add a `[patch."https://github.com/sandboxly/orchard-commons"]` section pointing at a local checkout (`../orchard-commons/crates/…`) in an uncommitted cargo config (`.cargo/config.toml` is tracked here) and pass it as `cargo <command> --config <file>`. A patched build rewrites the orchard entries in `Cargo.lock` as path packages and fails with `--locked`: never commit that, the committed lock keeps their git source.
 
 ## Commands
 
@@ -21,7 +21,7 @@ cargo run -- --screenshot /tmp/x.png --size 120x40 --dialog settings:speed   # l
 ```
 
 - `ORCHARD_DOWNLOAD_MANAGER_CONFIG_DIR=<empty dir>` runs with default settings and an empty list, without touching the real config.
-- `--screenshot` dialogs: `add`, `batch`, `settings[:PAGE]`, `remove`, `properties`, `help`; `--empty` for the empty list, `--cursor N` selects a row.
+- `--screenshot` dialogs: `add`, `batch`, `settings[:PAGE]`, `remove`, `properties`, `help`; `--empty` for the empty list, `--cursor N` selects a row, `--picker` opens the dialog's folder picker (`add`, `properties`, `settings`), `--picker-menu` its bookmark menu.
 
 ## Architecture
 
