@@ -15,7 +15,7 @@ ODM_TEST_URL=https://… cargo test real_server -- --nocapture       # plus one 
 cargo clippy --all-targets -- -D warnings                          # lint
 node --test extension/test/*.test.mjs                              # the extension's rules
 extension/package.sh                                               # dist/orchard-download-manager-chrome.zip for the store
-packaging/macos/package.sh [--notarize]                            # dist/Orchard-Download-Manager-macOS.dmg (Windows/Linux packages: CI)
+packaging/macos/package.sh [--notarize]                            # dist/Orchard-Download-Manager-macOS.dmg (CI builds every package)
 scripts/third-party-licenses.sh                                    # licenses/THIRD-PARTY-RUST.txt after dependency or version changes
 cargo run -- --screenshot /tmp/x.png --size 120x40 --dialog settings:speed   # look at the UI headless
 ```
