@@ -4907,7 +4907,7 @@ SOFTWARE.
 MIT License (MIT)
 
 Used by:
-  - orchard-download-manager 1.0.0
+  - orchard-download-manager 1.0.1
 
 MIT License
 
