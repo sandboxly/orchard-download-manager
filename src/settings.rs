@@ -56,6 +56,10 @@ pub enum Conflict {
     /// "name (1).ext".
     Rename,
     Overwrite,
+    /// Leave the file alone and drop the download.
+    Skip,
+    /// A window asks (unless the answer was remembered for the file type).
+    Ask,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +103,9 @@ pub struct Settings {
     /// Category folders that differ from "<download dir>/<Category>".
     pub category_dirs: BTreeMap<Category, PathBuf>,
     pub on_conflict: Conflict,
+    /// With `on_conflict: ask`: answers remembered by file extension
+    /// (lowercase, "" for none).
+    pub conflict_by_type: BTreeMap<String, Conflict>,
     /// New downloads start right away (else they wait, paused).
     pub start_immediately: bool,
     /// The add dialog suggests the folder used last.
@@ -188,6 +195,7 @@ impl Default for Settings {
             sort_by_category: false,
             category_dirs: BTreeMap::new(),
             on_conflict: Conflict::Rename,
+            conflict_by_type: BTreeMap::new(),
             start_immediately: true,
             remember_last_folder: true,
             last_folder: None,
@@ -284,9 +292,29 @@ impl Settings {
         n.max(1) as usize
     }
 
+    /// What to do when `name` already exists: the setting, or with "ask"
+    /// the answer remembered for its type.
+    pub fn conflict_for(&self, name: &str) -> Conflict {
+        match self.on_conflict {
+            Conflict::Ask => self.conflict_by_type.get(&file_type(name)).copied().unwrap_or(Conflict::Ask),
+            c => c,
+        }
+    }
+
     pub fn catches(&self, ext: &str) -> bool {
         let ext = ext.to_ascii_lowercase();
         self.catch_extensions.split([' ', ',', ';']).any(|e| e.trim_start_matches('.').eq_ignore_ascii_case(&ext))
+    }
+}
+
+/// A file name's type for remembered answers: its extension, lowercase
+/// ("archive.tar.gz": "tar.gz"; none: "").
+pub fn file_type(name: &str) -> String {
+    let lower = name.to_ascii_lowercase();
+    match lower.rsplit_once('.') {
+        Some((stem, ext)) if stem.ends_with(".tar") && stem.len() > 4 => format!("tar.{ext}"),
+        Some((stem, ext)) if !stem.is_empty() => ext.to_string(),
+        _ => String::new(),
     }
 }
 
@@ -336,6 +364,20 @@ mod tests {
         assert_eq!(s.dir_for(Category::Other), PathBuf::from("/d"));
         s.category_dirs.insert(Category::Music, "/m".into());
         assert_eq!(s.dir_for(Category::Music), PathBuf::from("/m"));
+    }
+
+    #[test]
+    fn conflict_answers_by_file_type() {
+        assert_eq!(file_type("a.ZIP"), "zip");
+        assert_eq!(file_type("src.tar.gz"), "tar.gz");
+        assert_eq!(file_type(".bashrc"), "");
+        assert_eq!(file_type("README"), "");
+        let mut s = Settings { on_conflict: Conflict::Ask, ..Settings::default() };
+        s.conflict_by_type.insert("zip".into(), Conflict::Overwrite);
+        assert_eq!(s.conflict_for("x.zip"), Conflict::Overwrite);
+        assert_eq!(s.conflict_for("x.iso"), Conflict::Ask);
+        s.on_conflict = Conflict::Rename;
+        assert_eq!(s.conflict_for("x.zip"), Conflict::Rename, "remembered answers only stand in for asking");
     }
 
     #[test]

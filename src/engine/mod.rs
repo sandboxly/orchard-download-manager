@@ -101,8 +101,9 @@ impl Spec {
 /// What the controller reports.
 #[derive(Debug)]
 pub enum Event {
-    /// The server answered; reply with where to save (`None` cancels).
-    Probed { probe: Probe, reply: Sender<Option<PathBuf>> },
+    /// The server answered; reply with where to save and whether a file
+    /// there is replaced (`None` cancels). The download waits for it.
+    Probed { probe: Probe, reply: Sender<Option<(PathBuf, bool)>> },
     /// Connections are running (`restarted`: why progress from before was dropped).
     Running { probe: Probe, target: PathBuf, restarted: Option<String> },
     /// Stopped on request; the segments in `Shared` are where to resume.
@@ -316,8 +317,8 @@ fn run(spec: Spec, shared: &Arc<Shared>, global: Arc<Limiter>, agent: ureq::Agen
         }
     });
 
-    let target = match &spec.target {
-        Some(t) => t.clone(),
+    let (target, overwrite) = match &spec.target {
+        Some(t) => (t.clone(), spec.overwrite),
         None => {
             let (tx, rx) = mpsc::channel();
             report(Event::Probed { probe: probe.clone(), reply: tx });
@@ -458,7 +459,7 @@ fn run(spec: Spec, shared: &Arc<Shared>, global: Arc<Limiter>, agent: ureq::Agen
         }
         return Ok(Outcome::Paused);
     }
-    finish(&part, &target, &probe, shared, spec.overwrite).map(Outcome::Done)
+    finish(&part, &target, &probe, shared, overwrite).map(Outcome::Done)
 }
 
 /// The part file is complete: check its size and give it its name.

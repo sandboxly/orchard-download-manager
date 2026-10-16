@@ -63,6 +63,7 @@ fn a_link_downloads_into_the_download_folder() {
     assert_eq!(d.progress(), Some(1.0));
     assert_eq!(std::fs::read(dir.path().join("test file.bin")).unwrap(), content);
     assert_eq!(app.toast.as_ref().map(|t| t.text.as_str()), Some("Downloaded test file.bin"));
+    assert!(!app.attention && !app.raise, "a finished download never asks for attention");
 }
 
 #[test]
@@ -233,10 +234,11 @@ fn copied_links_open_the_add_dialog_for_files_only() {
     let mut app = app(dir.path());
     app.clipboard_changed("see https://x.org/page.html");
     assert!(app.modal.is_none());
+    assert!(app.popup.is_none());
     app.clipboard_changed("get https://x.org/tool.zip now");
-    let Some(Modal::Add(a)) = &app.modal else { panic!("no dialog") };
+    let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &app.popup else { panic!("no dialog") };
     assert_eq!(a.links.text, "https://x.org/tool.zip");
-    assert!(app.attention);
+    assert!(app.modal.is_none(), "in a window of its own");
 }
 
 #[test]
@@ -349,6 +351,15 @@ fn every_dialog_draws_at_small_sizes() {
             let mut f = orchard_grid::Frame::new(cols, rows, app.theme.colors.background);
             ui::draw(&app, &mut f);
         }
+        // The popup's dialogs, in a window smaller than asked for.
+        ui::add::open_popup(&mut app, &[crate::ipc::Link::plain("https://x.org/a.zip".into())]);
+        ui::popup_resized(&mut app, cols / 2, rows / 2);
+        ui::draw_popup(&app, &mut orchard_grid::Frame::new(cols / 2, rows / 2, app.theme.colors.background));
+        let dialog = ui::conflict::ConflictDialog::new(&app, 1, &dir.path().join("a.zip"), true);
+        app.open_popup(PopupDialog::Conflict(dialog));
+        ui::popup_resized(&mut app, cols / 2, rows / 2);
+        ui::draw_popup(&app, &mut orchard_grid::Frame::new(cols / 2, rows / 2, app.theme.colors.background));
+        app.popup = None;
         for page in 0..ui::settings::PAGES.len() {
             ui::settings::open(&mut app, Some(page));
             let mut f = orchard_grid::Frame::new(cols, rows, app.theme.colors.background);
@@ -394,12 +405,14 @@ fn downloads_from_the_browser_keep_their_cookies() {
     let link = crate::ipc::Link { url: server.url.clone(), headers: vec![("Cookie".into(), "session=abc".into())], name: Some("report.bin".into()) };
     let h = crate::ipc::Handoff { items: vec![link], browser: true, ..Default::default() };
 
-    // The Add dialog first, with the browser's name; adding keeps the headers.
+    // The Add dialog first, in its own window, with the browser's name;
+    // adding keeps the headers.
     app.handoff(h.clone());
-    let Some(Modal::Add(a)) = &app.modal else { panic!("the Add dialog opens") };
+    let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &app.popup else { panic!("the Add dialog opens") };
     assert_eq!(a.name.text, "report.bin");
-    key(&mut app, Named::Enter);
-    assert!(app.modal.is_none());
+    assert!(!app.raise, "the main window stays where it is");
+    ui::popup_key(&mut app, &KeyEvent::named(Named::Enter));
+    assert!(app.popup.is_none());
     settle(&mut app, "done", |a| a.downloads[0].status == Status::Done);
     assert_eq!(std::fs::read(dir.path().join("report.bin")).unwrap(), content);
 
@@ -407,7 +420,7 @@ fn downloads_from_the_browser_keep_their_cookies() {
     app.settings.browser_ask = false;
     app.settings.start_immediately = false;
     app.handoff(h);
-    assert!(app.modal.is_none());
+    assert!(app.popup.is_none());
     assert_eq!(app.downloads.len(), 2);
     assert_eq!(app.downloads[1].status, Status::Paused);
     assert_eq!(app.downloads[1].headers, [("Cookie".to_string(), "session=abc".to_string())]);
@@ -419,6 +432,159 @@ fn links_from_another_start_open_the_add_dialog() {
     let mut app = app(dir.path());
     app.settings.browser_ask = false;
     app.external_links(vec!["see https://x.org/a.zip".into()]);
-    assert!(matches!(&app.modal, Some(Modal::Add(a)) if a.links.text == "https://x.org/a.zip"), "only the browser's links skip the dialog");
+    assert!(
+        matches!(&app.popup, Some(Popup { dialog: PopupDialog::Add(a), .. }) if a.links.text == "https://x.org/a.zip"),
+        "only the browser's links skip the dialog"
+    );
+    assert!(!app.raise);
+    // No links: just come forward.
+    app.external_links(Vec::new());
     assert!(app.raise);
+}
+
+fn popup_key(app: &mut App, n: Named) {
+    ui::popup_key(app, &KeyEvent::named(n));
+}
+
+/// The conflict dialog's question, if it's the popup.
+fn asked(app: &App) -> Option<u64> {
+    match &app.popup {
+        Some(Popup { dialog: PopupDialog::Conflict(c), .. }) => Some(c.id),
+        _ => None,
+    }
+}
+
+#[test]
+fn an_existing_file_is_asked_about_and_the_answer_remembered_by_type() {
+    let content = data(100 * 1024);
+    let server = serve(content.clone(), ServerOpts { ranges: true, ..Default::default() });
+    let dir = tempfile::tempdir().unwrap();
+    let old = dir.path().join("test file.bin");
+    std::fs::write(&old, b"old").unwrap();
+    let mut app = app(dir.path());
+    app.settings.on_conflict = Conflict::Ask;
+
+    // Keep both: the new file gets a number.
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "asked", |a| asked(a).is_some());
+    let first = app.popup.as_ref().unwrap().id;
+    popup_key(&mut app, Named::Enter);
+    settle(&mut app, "done", |a| a.downloads[0].status == Status::Done);
+    assert_eq!(std::fs::read(&old).unwrap(), b"old");
+    assert_eq!(std::fs::read(dir.path().join("test file (1).bin")).unwrap(), content);
+
+    // Replace, remembered for .bin files.
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "asked again", |a| asked(a).is_some());
+    assert_ne!(app.popup.as_ref().unwrap().id, first, "a new window, so it takes the focus again");
+    let Some(Popup { dialog: PopupDialog::Conflict(c), .. }) = &mut app.popup else { panic!() };
+    c.remember = true;
+    c.focus = Some(ui::conflict::Id::Replace);
+    popup_key(&mut app, Named::Enter);
+    assert_eq!(app.settings.conflict_by_type.get("bin"), Some(&Conflict::Overwrite));
+    settle(&mut app, "replaced", |a| a.downloads[1].status == Status::Done);
+    assert_eq!(std::fs::read(&old).unwrap(), content);
+
+    // Not asked again for the type.
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "replaced again", |a| a.downloads[2].status == Status::Done);
+    assert!(app.popup.is_none());
+    assert_eq!(app.downloads[2].name, "test file.bin");
+}
+
+#[test]
+fn skipping_leaves_the_file_and_drops_the_download() {
+    let server = serve(data(50 * 1024), ServerOpts { ranges: true, ..Default::default() });
+    let dir = tempfile::tempdir().unwrap();
+    let old = dir.path().join("test file.bin");
+    std::fs::write(&old, b"old").unwrap();
+    let mut app = app(dir.path());
+    app.settings.on_conflict = Conflict::Ask;
+
+    // Esc (or closing the window) skips, this once.
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "asked", |a| asked(a).is_some());
+    ui::popup_closed(&mut app);
+    settle(&mut app, "dropped", |a| a.downloads.is_empty());
+    assert_eq!(std::fs::read(&old).unwrap(), b"old");
+    assert!(app.settings.conflict_by_type.is_empty());
+
+    // Two at once are asked one after the other; pausing one drops its question.
+    let links: Vec<String> = (0..2).map(|i| format!("{}?n={i}", server.url)).collect();
+    app.add_links(&links, start());
+    settle(&mut app, "both asked", |a| a.asks.len() == 2);
+    let shown = asked(&app).unwrap();
+    app.pause(&[shown]);
+    settle(&mut app, "the other one asked", |a| asked(a).is_some_and(|id| id != shown));
+    settle(&mut app, "paused", |a| a.get(shown).is_some_and(|d| d.status == Status::Paused));
+
+    // The settings can skip without asking.
+    app.settings.on_conflict = Conflict::Skip;
+    popup_key(&mut app, Named::Escape);
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "skipped", |a| a.downloads.len() == 1);
+    assert!(app.popup.is_none());
+    assert_eq!(std::fs::read(&old).unwrap(), b"old");
+}
+
+#[test]
+fn the_add_dialog_asks_when_the_file_exists() {
+    let content = data(60 * 1024);
+    let server = serve(content.clone(), ServerOpts { ranges: true, ..Default::default() });
+    let dir = tempfile::tempdir().unwrap();
+    let old = dir.path().join("test file.bin");
+    std::fs::write(&old, b"old").unwrap();
+    let mut app = app(dir.path());
+    app.settings.on_conflict = Conflict::Ask;
+    app.external_links(vec![server.url.clone()]);
+    settle(&mut app, "looked up", |a| matches!(&a.popup, Some(Popup { dialog: PopupDialog::Add(d), .. }) if matches!(d.lookup, ui::add::Lookup::Found(..))));
+    // Replace, and remember it.
+    let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &mut app.popup else { panic!() };
+    a.remember = true;
+    a.focus = Some(ui::add::Id::Replace);
+    popup_key(&mut app, Named::Enter);
+    assert!(app.popup.is_none(), "answered in the dialog: not asked again");
+    assert_eq!(app.downloads[0].conflict, Some(Conflict::Overwrite));
+    assert_eq!(app.settings.conflict_by_type.get("bin"), Some(&Conflict::Overwrite));
+    settle(&mut app, "done", |a| a.downloads[0].status == Status::Done);
+    assert!(app.popup.is_none());
+    assert_eq!(std::fs::read(&old).unwrap(), content);
+}
+
+#[test]
+fn a_file_still_downloading_can_be_kept_twice_or_skipped_but_not_replaced() {
+    let content = data(400 * 1024);
+    let server = serve(content.clone(), ServerOpts { ranges: true, rate: 100 * 1024, ..Default::default() });
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = app(dir.path());
+    app.settings.on_conflict = Conflict::Ask;
+    app.settings.conflict_by_type.insert("bin".into(), Conflict::Overwrite);
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "running", |a| a.downloads[0].target.is_some());
+
+    // The same link again while the first one runs: asked even though
+    // "replace" was remembered for the type, and without "Replace".
+    app.add_links(std::slice::from_ref(&server.url), start());
+    settle(&mut app, "asked", |a| asked(a).is_some());
+    assert!(app.asks[0].busy, "the first one is still getting it");
+    let Some(Popup { dialog: PopupDialog::Conflict(c), .. }) = &app.popup else { panic!() };
+    assert_eq!(c.title(), "Already downloading");
+    assert_eq!(c.buttons(), [ui::conflict::Id::Keep, ui::conflict::Id::Skip]);
+    popup_key(&mut app, Named::Enter);
+    settle(&mut app, "both done", |a| a.downloads.len() == 2 && a.downloads.iter().all(|d| d.status == Status::Done));
+    assert_eq!(std::fs::read(dir.path().join("test file.bin")).unwrap(), content);
+    assert_eq!(std::fs::read(dir.path().join("test file (1).bin")).unwrap(), content);
+
+    // The Add dialog knows before the lookup: the link is in the list and
+    // not finished (here: paused).
+    app.add_links(&["https://x.org/same.iso".into()], AddOptions::default());
+    app.external_links(vec!["https://x.org/same.iso".into()]);
+    let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &app.popup else { panic!() };
+    assert_eq!(ui::add::buttons(&app, a), ["Keep both", "Skip"]);
+    // Skip: nothing added.
+    let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &mut app.popup else { panic!() };
+    a.focus = Some(ui::add::Id::Cancel);
+    popup_key(&mut app, Named::Enter);
+    assert!(app.popup.is_none());
+    assert_eq!(app.downloads.len(), 3);
 }

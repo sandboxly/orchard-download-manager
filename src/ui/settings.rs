@@ -321,7 +321,7 @@ fn hint(id: Id) -> &'static str {
         LineSpacing => "Room between the rows.",
         DownloadDir => "Where files go unless you pick a folder when adding them. Empty: the system's Downloads folder.",
         SortByCategory => "Video, music, documents, archives, programs and images each go to their own folder (set them under Categories).",
-        OnConflict => "Keep both files (the new one gets a number), or replace the old one.",
+        OnConflict => "Keep both (the new file gets a number), replace the old file, skip the download, or ask each time. Reset page forgets the answers remembered by type.",
         StartImmediately => "Off: new downloads wait, paused, until you start them (F5).",
         RememberFolder => "The Add dialog suggests the folder you saved to last; off, files go by type.",
         ConfirmRemove => "Removing from the list keeps finished files; deleting files always asks.",
@@ -347,7 +347,7 @@ fn hint(id: Id) -> &'static str {
         Day(_) => "The days the schedule starts downloads.",
         WhenDone => "After a 30-second countdown you can cancel with Esc.",
         PreventSleep => "The computer doesn't go to sleep on its own while downloads run.",
-        NotifyDone => "Also asks for attention when the window is in the background.",
+        NotifyDone => "In the app, and as a system notification while its window isn't focused. It never takes the focus.",
         VerifyChecksums => "A file that doesn't match is marked with ! — download it again with R.",
         Choose(_) => "Pick the folder from a list instead of typing it.",
         ResetPage => "Put this page's settings back as they were when the app was new.",
@@ -433,7 +433,15 @@ fn combo(app: &App, d: &SettingsDialog, id: Id) -> (Vec<Choice>, usize) {
             }
             pick(styles, cur)
         }
-        Id::OnConflict => (labels(&["Keep both (add a number)", "Replace the old file"]), usize::from(s.on_conflict == Conflict::Overwrite)),
+        Id::OnConflict => (
+            labels(&["Keep both (add a number)", "Replace the old file", "Skip the download", "Ask me"]),
+            match s.on_conflict {
+                Conflict::Rename => 0,
+                Conflict::Overwrite => 1,
+                Conflict::Skip => 2,
+                Conflict::Ask => 3,
+            },
+        ),
         Id::Traffic => (labels(&["Low", "Medium", "High"]), Traffic::ALL.iter().position(|&t| t == s.traffic).unwrap_or(2)),
         Id::ProxyMode => (
             labels(&["Use the system's proxy", "Directly, without a proxy", "Through this proxy:"]),
@@ -468,7 +476,7 @@ fn choose(app: &mut App, d: &SettingsDialog, id: Id, i: usize) {
             s.font_style = String::new();
         }
         Id::FontStyle => s.font_style = if label == "Regular" { String::new() } else { label },
-        Id::OnConflict => s.on_conflict = if i == 1 { Conflict::Overwrite } else { Conflict::Rename },
+        Id::OnConflict => s.on_conflict = [Conflict::Rename, Conflict::Overwrite, Conflict::Skip, Conflict::Ask][i.min(3)],
         Id::Traffic => s.traffic = Traffic::ALL[i.min(2)],
         Id::ProxyMode => s.proxy_mode = [ProxyMode::System, ProxyMode::None, ProxyMode::Manual][i.min(2)],
         Id::WhenDone => s.when_done = [WhenDone::Nothing, WhenDone::Quit, WhenDone::Sleep][i.min(2)],
@@ -654,6 +662,7 @@ fn reset_page(app: &mut App, page: usize) {
             s.download_dir = def.download_dir;
             s.sort_by_category = def.sort_by_category;
             s.on_conflict = def.on_conflict;
+            s.conflict_by_type = def.conflict_by_type;
             s.remember_last_folder = def.remember_last_folder;
             s.start_immediately = def.start_immediately;
             s.confirm_remove = def.confirm_remove;

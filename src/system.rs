@@ -1,5 +1,6 @@
 //! The operating system: opening files, showing them in the file manager,
-//! keeping the computer awake while downloading, putting it to sleep.
+//! keeping the computer awake while downloading, putting it to sleep,
+//! notifications.
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -109,6 +110,29 @@ impl Drop for Awake {
             let _ = c.wait();
         }
     }
+}
+
+/// A system notification. It never takes the focus. Sent from a thread of
+/// its own: the notification service may take a moment to answer.
+pub fn notify(summary: String, body: String) {
+    std::thread::spawn(move || {
+        let mut n = notify_rust::Notification::new();
+        n.appname("Orchard Download Manager").summary(&summary);
+        // Linux and the BSDs: the body may hold markup, and the icon is the
+        // installed app's.
+        #[cfg(all(unix, not(target_os = "macos")))]
+        n.body(&escape_markup(&body)).icon("orchard-download-manager");
+        #[cfg(not(all(unix, not(target_os = "macos"))))]
+        n.body(&body);
+        if let Err(e) = n.show() {
+            log::warn!("notification: {e}");
+        }
+    });
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn escape_markup(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Put the computer to sleep.

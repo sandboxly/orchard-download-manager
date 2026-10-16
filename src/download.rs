@@ -12,6 +12,7 @@ use crate::category::Category;
 use crate::checksum::Expected;
 use crate::engine::http::{Headers, Validator};
 use crate::engine::{Segment, Shared};
+use crate::settings::Conflict;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Status {
@@ -105,6 +106,10 @@ pub struct Download {
     pub checksum: Option<Expected>,
     /// Whether the finished file matched `checksum`.
     pub verified: Option<bool>,
+    /// What to do if the file already exists, when decided for this one
+    /// (in the Add dialog or when asked); else the settings say.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conflict: Option<Conflict>,
     #[serde(skip)]
     pub run: Option<Run>,
     #[serde(skip)]
@@ -135,6 +140,7 @@ impl Download {
             speed_limit: None,
             checksum: None,
             verified: None,
+            conflict: None,
             run: None,
             history: VecDeque::new(),
         }

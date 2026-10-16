@@ -2,6 +2,7 @@
 //! The layout is recomputed, never stored; mouse hit testing uses it too.
 
 pub mod add;
+pub mod conflict;
 pub mod dialogs;
 pub mod form;
 pub mod settings;
@@ -11,7 +12,7 @@ use orchard_kit::input::{KeyEvent, MouseEvent};
 use orchard_kit::widgets::{self, BoxFrame, DrawCtx, Scrollbar, contains, draw_key_bar, fill, inset, put, width};
 use orchard_theme::mix;
 
-use crate::app::{App, Modal, Tab};
+use crate::app::{App, Modal, PopupDialog, Tab};
 use crate::download::{Download, Status};
 use crate::engine::UNKNOWN_END;
 use crate::format;
@@ -609,6 +610,75 @@ pub fn modal_mouse(app: &mut App, ev: &MouseEvent) {
     if app.modal.is_none() {
         app.modal = next;
     }
+}
+
+// ---------------------------------------------------------------------------
+// The popup window
+// ---------------------------------------------------------------------------
+
+/// The popup window the app wants: its id, title and size in cells.
+pub fn popup_window(app: &App) -> Option<(u64, String, (u16, u16))> {
+    let p = app.popup.as_ref()?;
+    let (title, cells) = match &p.dialog {
+        PopupDialog::Add(a) => ("Add download", add::popup_cells(a)),
+        PopupDialog::Conflict(c) => (c.title(), (conflict::WIDTH + 4, conflict::ROWS + 4)),
+    };
+    Some((p.id, format!("{title} — Orchard Download Manager"), cells))
+}
+
+pub fn draw_popup(app: &App, f: &mut Frame) {
+    let ctx = DrawCtx { theme: &app.theme, cell_px: app.cell_px };
+    f.clear(app.theme.colors.background);
+    f.cursor = None;
+    match app.popup.as_ref().map(|p| &p.dialog) {
+        Some(PopupDialog::Add(a)) => add::draw(app, a, f, &ctx),
+        Some(PopupDialog::Conflict(c)) => c.draw(f, &ctx),
+        None => {}
+    }
+}
+
+pub fn popup_resized(app: &mut App, cols: u16, rows: u16) {
+    let area = CellRect::new(0, 0, cols, rows);
+    match app.popup.as_mut().map(|p| &mut p.dialog) {
+        Some(PopupDialog::Add(a)) => a.area = Some(area),
+        Some(PopupDialog::Conflict(c)) => c.area = area,
+        None => {}
+    }
+}
+
+/// Hand the popup's dialog to `f`; `false` from it closes the popup. Then
+/// the next question, if one waits.
+fn with_popup(app: &mut App, f: impl FnOnce(&mut App, &mut PopupDialog) -> bool) {
+    let Some(mut p) = app.popup.take() else { return };
+    // Unless the dialog opened another one.
+    if f(app, &mut p.dialog) && app.popup.is_none() {
+        app.popup = Some(p);
+    }
+    app.show_next_ask();
+}
+
+pub fn popup_key(app: &mut App, ev: &KeyEvent) {
+    with_popup(app, |app, d| match d {
+        PopupDialog::Add(a) => add::key(app, a, ev),
+        PopupDialog::Conflict(c) => c.key(app, ev),
+    });
+}
+
+pub fn popup_mouse(app: &mut App, ev: &MouseEvent) {
+    with_popup(app, |app, d| match d {
+        PopupDialog::Add(a) => add::mouse(app, a, ev),
+        PopupDialog::Conflict(c) => c.mouse(app, ev),
+    });
+}
+
+/// The popup's window was closed: like Esc.
+pub fn popup_closed(app: &mut App) {
+    with_popup(app, |app, d| {
+        if let PopupDialog::Conflict(_) = d {
+            app.answer(crate::settings::Conflict::Skip, false);
+        }
+        false
+    });
 }
 
 fn draw_toast(app: &App, f: &mut Frame, l: &Layout, ctx: &DrawCtx) {

@@ -15,6 +15,15 @@ schemes, same frame look.
   download.
 * Add one link, many pasted at once, or a pattern like `img[001-120].jpg`.
 * Watches the clipboard for links to files (by type) and offers them.
+* Links from the browser, the clipboard or another start are confirmed
+  in a window of their own, which opens next to the window you are in
+  and takes the focus; the list's window stays where it is.
+* A file that already exists, or a link that is already downloading:
+  keep both (the new one gets a number), replace it (once it's finished),
+  skip the download, or ask each time and remember the answer for the
+  file type.
+* A system notification when a download finishes while the window is in
+  the background; it never takes the focus.
 * Sorts files into a folder per type, if you like.
 * "Choose…" next to a folder field opens a folder picker with your
   standard folders, drives and Orchard Commander's bookmarks (⌘D), and

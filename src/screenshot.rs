@@ -1,6 +1,7 @@
 //! `--screenshot OUT.png|OUT.webp`: a state drawn headlessly (docs, and
 //! checking the look without a window): a demo list with downloads in
-//! every state, and any dialog, with its folder picker open.
+//! every state, and any dialog, with its folder picker open; `--popup`
+//! draws the popup window instead (`--dialog conflict` is always there).
 
 use std::process::ExitCode;
 use std::sync::mpsc;
@@ -10,7 +11,7 @@ use std::time::{Duration, Instant};
 use orchard_grid::Frame;
 use orchard_kit::input::{KeyEvent, Mods};
 use orchard_download_manager::App;
-use orchard_download_manager::app::Modal;
+use orchard_download_manager::app::{Modal, PopupDialog};
 use orchard_download_manager::checksum::Expected;
 use orchard_download_manager::download::{Download, Run, Status};
 use orchard_download_manager::engine::{Segment, Shared};
@@ -27,6 +28,8 @@ struct Options {
     picker: bool,
     /// The picker's bookmark menu (⌘D / Ctrl+D).
     picker_menu: bool,
+    /// The Add dialog in the popup window (as for links from the browser).
+    popup: bool,
 }
 
 pub fn run(args: &[String]) -> ExitCode {
@@ -36,6 +39,7 @@ pub fn run(args: &[String]) -> ExitCode {
         "--cursor" => o.cursor = it.next().and_then(|s| s.parse().ok()).unwrap_or(0),
         "--picker" => o.picker = true,
         "--picker-menu" => (o.picker, o.picker_menu) = (true, true),
+        "--popup" => o.popup = true,
         _ => {}
     }) {
         Ok(s) => s,
@@ -91,15 +95,47 @@ pub fn run(args: &[String]) -> ExitCode {
             ui::settings::open(&mut app, page);
             app.fonts = Some(orchard_grid::FontLibrary::system().families(true));
         }
+        Some(s) if s.starts_with("conflict") => {
+            if app.downloads.is_empty() {
+                demo(&mut app);
+            }
+            // conflict:busy — the running download's link again.
+            let busy = s.ends_with(":busy");
+            let d = &app.downloads[if busy { 0 } else { 4 }];
+            let (url, path) = (d.url.clone(), d.target.clone().unwrap_or_default());
+            let mut id = d.id;
+            if busy {
+                id = 100;
+                app.downloads.push(Download::new(id, url));
+            }
+            let dialog = ui::conflict::ConflictDialog::new(&app, id, &path, busy);
+            app.open_popup(PopupDialog::Conflict(dialog));
+        }
         Some("remove") => app.ask_remove(true),
         Some("properties") => ui::dialogs::open_properties(&mut app),
         _ => {}
     }
+    if o.popup
+        && let Some(Modal::Add(a)) = app.modal.take()
+    {
+        app.open_popup(PopupDialog::Add(a));
+    }
     if o.picker {
         open_picker(&mut app, o.picker_menu, &rx);
     }
-    let mut frame = Frame::new(cols, rows, app.theme.colors.background);
-    ui::draw(&app, &mut frame);
+    // The popup window at the size it asks for, or the main window.
+    let (mut frame, popup) = match ui::popup_window(&app) {
+        Some((_, _, (c, r))) => {
+            ui::popup_resized(&mut app, c, r);
+            (Frame::new(c, r, app.theme.colors.background), true)
+        }
+        None => (Frame::new(cols, rows, app.theme.colors.background), false),
+    };
+    if popup {
+        ui::draw_popup(&app, &mut frame);
+    } else {
+        ui::draw(&app, &mut frame);
+    }
     let renderer = r.renderer();
     orchard_download_manager::icons::upload_missing(&frame, &mut Default::default(), |id, w, h, rgba| {
         if let Err(e) = renderer.set_image(id, w, h, rgba) {
@@ -120,14 +156,30 @@ fn open_picker(app: &mut App, menu: bool, rx: &mpsc::Receiver<()>) {
         _ => {}
     }
     app.modal = modal;
+    let mut popup = app.popup.take();
+    if let Some(PopupDialog::Add(a)) = popup.as_mut().map(|p| &mut p.dialog) {
+        ui::add::choose(app, a);
+        // Taller, as the window asks for while the picker is open.
+        let (c, r) = ui::add::popup_cells(a);
+        a.area = Some(orchard_grid::CellRect::new(0, 0, c, r));
+    }
+    app.popup = popup;
+    let loading = |app: &mut App| match app.popup.as_mut().map(|p| &mut p.dialog) {
+        Some(PopupDialog::Add(a)) => a.picker.as_ref().is_some_and(|p| p.loading()),
+        _ => app.modal.as_mut().and_then(Modal::picker).is_some_and(|p| p.loading()),
+    };
     let until = Instant::now() + Duration::from_secs(5);
-    while app.modal.as_mut().and_then(Modal::picker).is_some_and(|p| p.loading()) && Instant::now() < until {
+    while loading(app) && Instant::now() < until {
         let _ = rx.recv_timeout(until.saturating_duration_since(Instant::now()));
         app.process();
     }
     if menu {
         let d = KeyEvent::char('d').with(Mods { ctrl: true, logo: true, ..Default::default() });
-        app.handle_key(&d);
+        if app.popup.is_some() {
+            ui::popup_key(app, &d);
+        } else {
+            app.handle_key(&d);
+        }
     }
 }
 

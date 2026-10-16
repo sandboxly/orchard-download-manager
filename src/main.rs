@@ -16,7 +16,7 @@ use orchard_download_manager::ui;
 use orchard_grid::{FontConfig, Frame, GridRenderer, ImageId, Rgba};
 use orchard_kit::input::{KeyEvent, MouseEvent};
 use orchard_shell::winit::window::{UserAttentionType, Window};
-use orchard_shell::{AppInfo, ShellApp, cli};
+use orchard_shell::{AppInfo, Popup, ShellApp, cli};
 
 mod screenshot;
 
@@ -137,13 +137,40 @@ impl ShellApp for Shell {
         }
     }
 
-    fn focus_changed(&mut self, _focused: bool) -> bool {
+    fn focus_changed(&mut self, focused: bool) -> bool {
+        self.app.focused = focused;
         true
+    }
+
+    /// Dialogs that open where the user is (links from the browser, a file
+    /// that already exists), in a window of their own.
+    fn popup(&self) -> Option<Popup> {
+        ui::popup_window(&self.app).map(|(id, title, cells)| Popup { id, title, cells })
+    }
+
+    fn popup_resized(&mut self, cols: u16, rows: u16) {
+        ui::popup_resized(&mut self.app, cols, rows);
+    }
+
+    fn draw_popup(&self, frame: &mut Frame) {
+        ui::draw_popup(&self.app, frame);
+    }
+
+    fn popup_key(&mut self, ev: &KeyEvent) {
+        ui::popup_key(&mut self.app, ev);
+    }
+
+    fn popup_mouse(&mut self, ev: &MouseEvent) {
+        ui::popup_mouse(&mut self.app, ev);
+    }
+
+    fn popup_closed(&mut self) {
+        ui::popup_closed(&mut self.app);
     }
 }
 
 fn usage() -> &'static str {
-    "usage: orchard-download-manager [LINK]...\n       orchard-download-manager --version | --self-test\n       orchard-download-manager --screenshot OUT.png [--size COLSxROWS] [--theme NAME] [--dialog add|batch|settings[:PAGE]|remove|properties|checksum|help] [--picker|--picker-menu] [--empty] [--cursor N]"
+    "usage: orchard-download-manager [LINK]...\n       orchard-download-manager --version | --self-test\n       orchard-download-manager --screenshot OUT.png [--size COLSxROWS] [--theme NAME] [--dialog add|batch|settings[:PAGE]|remove|properties|checksum|conflict|help] [--popup] [--picker|--picker-menu] [--empty] [--cursor N]"
 }
 
 /// `--self-test`: downloading and drawing work in this build (for

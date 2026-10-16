@@ -140,7 +140,7 @@ fn run_to_end(spec: Spec, shared: Arc<Shared>, dir: &Path) -> Vec<String> {
     let report: Reporter = Arc::new(move |e| {
         let text = match &e {
             Event::Probed { probe, reply } => {
-                let _ = reply.send(Some(dir.join(&probe.name)));
+                let _ = reply.send(Some((dir.join(&probe.name), false)));
                 format!("probed {} {:?} {}", probe.name, probe.size, probe.resumable)
             }
             Event::Running { restarted, .. } => format!("running {restarted:?}"),

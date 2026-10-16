@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -19,9 +20,9 @@ use crate::engine::http::{self, NetConfig};
 use crate::engine::limiter::Limiter;
 use crate::engine::{self, Event, Reporter, Shared, Spec};
 use crate::format;
-use crate::settings::{self, ProxyMode, Settings, WhenDone};
+use crate::settings::{self, Conflict, ProxyMode, Settings, WhenDone};
 use crate::system;
-use crate::ui::{self, add::AddDialog, dialogs, settings::SettingsDialog};
+use crate::ui::{self, add::AddDialog, conflict::ConflictDialog, dialogs, settings::SettingsDialog};
 
 /// The list's status tabs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,10 +87,46 @@ impl Modal {
     }
 }
 
+/// A dialog in a window of its own (`orchard_shell::Popup`), which opens
+/// where the user is and takes the focus: links from outside the app to
+/// confirm, a file that already exists.
+pub struct Popup {
+    /// Changes with each dialog, so each comes forward.
+    pub id: u64,
+    pub dialog: PopupDialog,
+}
+
+pub enum PopupDialog {
+    Add(Box<AddDialog>),
+    Conflict(ConflictDialog),
+}
+
+/// A download waiting for an answer: the file it would save to exists.
+pub struct Ask {
+    pub id: u64,
+    pub path: PathBuf,
+    /// Another download in the list is still getting this file (so it
+    /// can't be replaced), rather than a file in the folder.
+    pub busy: bool,
+    /// To the download's engine thread: where to save, and whether to
+    /// replace. Dropped: it stops (and is removed if `skip`).
+    reply: Sender<Option<(PathBuf, bool)>>,
+}
+
 pub struct Toast {
     pub text: String,
     pub error: bool,
     pub until: Instant,
+}
+
+/// Where a download goes, by the settings or its own choice.
+enum Place {
+    /// This path; whether a file there is replaced.
+    At(PathBuf, bool),
+    /// The file exists and the settings say to skip it.
+    Skip(PathBuf, bool),
+    /// The file exists, or another download is getting it (`true`): ask.
+    Ask(PathBuf, bool),
 }
 
 /// What the app does when the last download finished, after a countdown.
@@ -112,6 +149,9 @@ pub struct AddOptions {
     pub start: bool,
     /// Request headers by link (from the browser).
     pub headers: HashMap<String, http::Headers>,
+    /// What to do if the file exists (chosen in the dialog); `None`: the
+    /// settings say.
+    pub conflict: Option<Conflict>,
 }
 
 pub struct App {
@@ -132,6 +172,10 @@ pub struct App {
     pub category: Option<Category>,
     pub search: Option<Search>,
     pub modal: Option<Modal>,
+    pub popup: Option<Popup>,
+    next_popup: u64,
+    /// Downloads waiting for an answer, asked one at a time in the popup.
+    pub asks: VecDeque<Ask>,
     pub toast: Option<Toast>,
     pub pending: Option<Pending>,
     pub tasks: Tasks<App>,
@@ -147,6 +191,8 @@ pub struct App {
     /// The window should ask for attention / come to the front.
     pub attention: bool,
     pub raise: bool,
+    /// The main window has the keyboard focus.
+    pub focused: bool,
     dirty: bool,
     last_save: Instant,
     last_sample: Instant,
@@ -181,6 +227,9 @@ impl App {
             category: None,
             search: None,
             modal: None,
+            popup: None,
+            next_popup: 1,
+            asks: VecDeque::new(),
             toast: None,
             pending: None,
             tasks: Tasks::new(3, wake),
@@ -191,6 +240,7 @@ impl App {
             quit: false,
             attention: false,
             raise: false,
+            focused: true,
             dirty: false,
             last_save: Instant::now(),
             last_sample: Instant::now(),
@@ -366,6 +416,12 @@ impl App {
         if let Some(p) = self.modal.as_mut().and_then(Modal::picker) {
             changed |= p.poll();
         }
+        if let Some(Popup { dialog: PopupDialog::Add(a), .. }) = &mut self.popup
+            && let Some(p) = &mut a.picker
+        {
+            changed |= p.poll();
+        }
+        changed |= self.drop_stale_asks();
         changed
     }
 
@@ -401,11 +457,13 @@ impl App {
             self.pending = None;
             self.when_done_now(action);
         }
-        if let Some(Modal::Add(a)) = &mut self.modal
-            && a.probe_due.is_some_and(|t| now >= t)
-        {
-            a.probe_due = None;
-            ui::add::probe(self);
+        for popup in [false, true] {
+            if let Some(a) = ui::add::dialog(self, popup)
+                && a.probe_due.is_some_and(|t| now >= t)
+            {
+                a.probe_due = None;
+                ui::add::probe(self, popup);
+            }
         }
         if now.duration_since(self.last_save) > Duration::from_secs(5) {
             self.save();
@@ -417,8 +475,10 @@ impl App {
         let toast = self.toast.as_ref().map(|t| t.until);
         let running = self.downloads.iter().any(|d| d.run.is_some()).then(|| now + Duration::from_millis(500));
         let pending = self.pending.as_ref().map(|_| now + Duration::from_millis(500));
-        let probe = match &self.modal {
-            Some(Modal::Add(a)) => a.probe_due,
+        let probe = match (&self.modal, &self.popup) {
+            (Some(Modal::Add(a)), Some(Popup { dialog: PopupDialog::Add(b), .. })) => a.probe_due.into_iter().chain(b.probe_due).min(),
+            (Some(Modal::Add(a)), _) => a.probe_due,
+            (_, Some(Popup { dialog: PopupDialog::Add(b), .. })) => b.probe_due,
             _ => None,
         };
         // The schedule and the clean-up need a look now and then.
@@ -611,6 +671,7 @@ impl App {
             }
             d.dir = opts.dir.clone();
             d.checksum = opts.checksum.clone();
+            d.conflict = opts.conflict;
             d.headers = opts.headers.get(link).cloned().unwrap_or_default();
             d.status = if opts.start { Status::Queued } else { Status::Paused };
             self.cursor = Some(d.id);
@@ -640,12 +701,12 @@ impl App {
         if links.is_empty() {
             return;
         }
-        match &mut self.modal {
+        match &mut self.popup {
             None => {
-                ui::add::open(self, &links.join(" "));
-                self.attention = true;
+                let items: Vec<crate::ipc::Link> = links.into_iter().map(crate::ipc::Link::plain).collect();
+                ui::add::open_popup(self, &items);
             }
-            Some(Modal::Add(a)) if a.links.text.trim().is_empty() => {
+            Some(Popup { dialog: PopupDialog::Add(a), .. }) if a.links.text.trim().is_empty() => {
                 a.links.set_text(&links.join(" "));
                 ui::add::links_changed(a);
             }
@@ -664,14 +725,15 @@ impl App {
         let mut items: Vec<crate::ipc::Link> = crate::links::find(&h.links.join(" ")).into_iter().map(crate::ipc::Link::plain).collect();
         items.extend(h.items.into_iter().filter(|l| l.url.starts_with("http://") || l.url.starts_with("https://")));
         let ask = !h.browser || self.settings.browser_ask;
-        if ask {
-            self.raise = true;
-        }
         if items.is_empty() {
+            // Started again without links: come forward.
+            self.raise = ask;
             return;
         }
-        if ask && self.modal.is_none() {
-            ui::add::open_links(self, &items);
+        // In a window of its own, where the user is (the browser, say),
+        // rather than in the list's window.
+        if ask && self.popup.is_none() {
+            ui::add::open_popup(self, &items);
             return;
         }
         let urls: Vec<String> = items.iter().map(|l| l.url.clone()).collect();
@@ -867,7 +929,7 @@ impl App {
             retries: s.retries,
             retry_delay: Duration::from_secs(s.retry_delay_secs.max(1) as u64),
             stall: Duration::from_secs(s.timeout_secs.max(5) as u64),
-            overwrite: s.on_conflict == settings::Conflict::Overwrite,
+            overwrite: d.conflict.unwrap_or_else(|| s.conflict_for(&d.name)) == Conflict::Overwrite,
         }
     }
 
@@ -896,8 +958,8 @@ impl App {
         engine::start(spec, shared, self.global.clone(), agent, report);
     }
 
-    /// The path a download saves to, once the server said its name.
-    fn choose_target(&self, id: u64, probe: &http::Probe) -> PathBuf {
+    /// Where a download saves to, once the server said its name.
+    fn place(&self, id: u64, probe: &http::Probe) -> Place {
         let d = self.get(id);
         let name = match d {
             Some(d) if d.name_fixed => d.name.clone(),
@@ -905,25 +967,149 @@ impl App {
         };
         let dir = d.and_then(|d| d.dir.clone()).unwrap_or_else(|| self.settings.dir_for(Category::of(&name)));
         let path = dir.join(&name);
-        if self.settings.on_conflict == settings::Conflict::Overwrite {
-            return path;
+        let busy = d.is_some_and(|d| self.downloading(Some(id), &d.url, &path).is_some());
+        let conflict = d.and_then(|d| d.conflict).unwrap_or_else(|| self.settings.conflict_for(&name));
+        match self.conflict_while(conflict, busy) {
+            _ if !busy && !path.exists() => {}
+            Conflict::Rename => {}
+            Conflict::Overwrite => return Place::At(path, true),
+            Conflict::Skip => return Place::Skip(path, busy),
+            Conflict::Ask => return Place::Ask(path, busy),
         }
+        Place::At(self.unique_target(id, &path), false)
+    }
+
+    /// The unfinished download in the list that comes from `url` or saves
+    /// to `path`: one added before download `before`, or any.
+    pub fn downloading(&self, before: Option<u64>, url: &str, path: &Path) -> Option<&Download> {
+        self.downloads.iter().find(|o| before.is_none_or(|id| o.id < id) && o.status != Status::Done && (o.url == url || o.file() == Some(path)))
+    }
+
+    /// What `conflict` means when the file is still being downloaded
+    /// (`busy`): it can't be replaced, so a remembered "replace" asks and
+    /// the setting keeps both.
+    pub fn conflict_while(&self, conflict: Conflict, busy: bool) -> Conflict {
+        match conflict {
+            Conflict::Overwrite if busy && self.settings.on_conflict == Conflict::Ask => Conflict::Ask,
+            Conflict::Overwrite if busy => Conflict::Rename,
+            c => c,
+        }
+    }
+
+    /// `path`, or a numbered name no file, partial file or other
+    /// download has.
+    fn unique_target(&self, id: u64, path: &Path) -> PathBuf {
         let taken: Vec<&Path> = self.downloads.iter().filter(|o| o.id != id && o.status != Status::Done).filter_map(|o| o.file()).collect();
-        engine::unique_path(&path, |p| taken.contains(&p))
+        engine::unique_path(path, |p| taken.contains(&p))
+    }
+
+    /// The download saves to `target`: tell its engine thread.
+    fn placed(&mut self, id: u64, target: PathBuf, overwrite: bool, reply: &Sender<Option<(PathBuf, bool)>>) {
+        if let Some(d) = self.get_mut(id) {
+            d.name = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            d.target = Some(target.clone());
+        }
+        let _ = reply.send(Some((target, overwrite)));
+    }
+
+    /// Leave the existing file alone: the download stops and leaves the
+    /// list (once its reply is dropped).
+    fn skip(&mut self, id: u64, path: &Path, busy: bool) {
+        let Some(d) = self.get_mut(id) else { return };
+        if let Some(r) = &mut d.run {
+            r.stopping = true;
+            r.then = Then::Remove { delete_files: false };
+        }
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if busy {
+            self.toast(format!("Skipped {name}: it's already downloading"), false);
+        } else {
+            let dir = path.parent().map(ui::home_relative).unwrap_or_default();
+            self.toast(format!("Skipped {name}: it's already in {dir}"), false);
+        }
+    }
+
+    /// The answer for the first download waiting: keep both, replace or
+    /// skip, and maybe remember it for the file type.
+    pub fn answer(&mut self, choice: Conflict, remember: bool) {
+        if let Some(Popup { dialog: PopupDialog::Conflict(_), .. }) = &self.popup {
+            self.popup = None;
+        }
+        let Some(ask) = self.asks.pop_front() else { return };
+        let name = ask.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if remember && choice != Conflict::Ask {
+            self.update_settings(|s| {
+                s.conflict_by_type.insert(settings::file_type(&name), choice);
+            });
+        }
+        // Nothing to replace yet while another download gets the file.
+        let choice = if ask.busy && choice == Conflict::Overwrite { Conflict::Rename } else { choice };
+        if let Some(d) = self.get_mut(ask.id) {
+            d.conflict = Some(choice);
+        }
+        match choice {
+            Conflict::Overwrite => self.placed(ask.id, ask.path, true, &ask.reply),
+            Conflict::Skip | Conflict::Ask => self.skip(ask.id, &ask.path, ask.busy),
+            Conflict::Rename => {
+                let target = self.unique_target(ask.id, &ask.path);
+                self.placed(ask.id, target, false, &ask.reply);
+            }
+        }
+        self.changed();
+        self.show_next_ask();
+    }
+
+    /// The next question in the popup, if it's free.
+    pub fn show_next_ask(&mut self) {
+        if self.popup.is_none()
+            && let Some(ask) = self.asks.front()
+        {
+            let dialog = ConflictDialog::new(self, ask.id, &ask.path, ask.busy);
+            self.open_popup(PopupDialog::Conflict(dialog));
+        }
+    }
+
+    pub fn open_popup(&mut self, dialog: PopupDialog) {
+        self.popup = Some(Popup { id: self.next_popup, dialog });
+        self.next_popup += 1;
+    }
+
+    /// Questions for downloads paused or removed meanwhile go away (their
+    /// engine thread stops once the reply is dropped).
+    fn drop_stale_asks(&mut self) -> bool {
+        let live = |app: &App, id: u64| app.get(id).and_then(|d| d.run.as_ref()).is_some_and(|r| !r.stopping);
+        let shown = self.asks.front().map(|a| a.id);
+        let before = self.asks.len();
+        let keep: VecDeque<Ask> = std::mem::take(&mut self.asks).into_iter().filter(|a| live(self, a.id)).collect();
+        self.asks = keep;
+        if self.asks.len() == before {
+            return false;
+        }
+        if self.asks.front().map(|a| a.id) != shown
+            && let Some(Popup { dialog: PopupDialog::Conflict(_), .. }) = &self.popup
+        {
+            self.popup = None;
+            self.show_next_ask();
+        }
+        true
     }
 
     pub fn engine_event(&mut self, id: u64, ev: Event) {
         self.changed();
         match ev {
             Event::Probed { probe, reply } => {
-                let target = self.choose_target(id, &probe);
                 if let Some(d) = self.get_mut(id) {
                     d.size = probe.size;
                     d.resumable = Some(probe.resumable);
-                    d.name = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                    d.target = Some(target.clone());
                 }
-                let _ = reply.send(Some(target));
+                match self.place(id, &probe) {
+                    Place::At(target, overwrite) => self.placed(id, target, overwrite, &reply),
+                    Place::Skip(path, busy) => self.skip(id, &path, busy),
+                    Place::Ask(path, busy) => {
+                        self.asks.push_back(Ask { id, path, busy, reply });
+                        self.show_next_ask();
+                    }
+                }
             }
             Event::Running { probe, target, restarted } => {
                 let Some(d) = self.get_mut(id) else { return };
@@ -969,17 +1155,25 @@ impl App {
                 d.segments.clear();
                 let name = d.name.clone();
                 let expected = d.checksum.clone().filter(|_| self.settings.verify_checksums);
+                // Never taking the focus or asking for attention: a
+                // notification, when the window is in the background.
                 if self.settings.notify_done {
                     self.toast(format!("Downloaded {name}"), false);
-                    self.attention = true;
+                    if !self.focused {
+                        system::notify("Download finished".into(), name);
+                    }
                 }
                 if let Some(exp) = expected {
                     self.verify(id, path, exp);
                 }
                 self.schedule();
                 if self.settings.when_done != WhenDone::Nothing && !self.downloads.iter().any(Download::is_active) {
-                    self.pending = Some(Pending { action: self.settings.when_done, at: Instant::now() + WHEN_DONE_DELAY });
-                    self.attention = true;
+                    let action = self.settings.when_done;
+                    self.pending = Some(Pending { action, at: Instant::now() + WHEN_DONE_DELAY });
+                    if !self.focused {
+                        let what = if action == WhenDone::Quit { "The app quits" } else { "The computer goes to sleep" };
+                        system::notify("All downloads finished".into(), format!("{what} in 30 seconds. Press Esc in the app to cancel"));
+                    }
                 }
             }
             Event::Failed(e) => {
