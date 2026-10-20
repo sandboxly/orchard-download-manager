@@ -1951,8 +1951,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-grid"
-version = "0.4.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.0#ee9c97dc58bfd9cd1347f5e467661906709bcf94"
+version = "0.4.1"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.1#c1c81140c28a557d166312d06547e218d388ddb9"
 dependencies = [
  "bytemuck",
  "fontdb",
@@ -1971,8 +1971,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-kit"
-version = "0.4.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.0#ee9c97dc58bfd9cd1347f5e467661906709bcf94"
+version = "0.4.1"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.1#c1c81140c28a557d166312d06547e218d388ddb9"
 dependencies = [
  "arboard",
  "dirs",
@@ -1983,8 +1983,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-places"
-version = "0.4.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.0#ee9c97dc58bfd9cd1347f5e467661906709bcf94"
+version = "0.4.1"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.1#c1c81140c28a557d166312d06547e218d388ddb9"
 dependencies = [
  "dirs",
  "orchard-theme",
@@ -1996,8 +1996,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-shell"
-version = "0.4.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.0#ee9c97dc58bfd9cd1347f5e467661906709bcf94"
+version = "0.4.1"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.1#c1c81140c28a557d166312d06547e218d388ddb9"
 dependencies = [
  "dirs",
  "image",
@@ -2011,8 +2011,8 @@ dependencies = [
 
 [[package]]
 name = "orchard-theme"
-version = "0.4.0"
-source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.0#ee9c97dc58bfd9cd1347f5e467661906709bcf94"
+version = "0.4.1"
+source = "git+https://github.com/sandboxly/orchard-commons?tag=v0.4.1#c1c81140c28a557d166312d06547e218d388ddb9"
 dependencies = [
  "dirs",
  "orchard-grid",
