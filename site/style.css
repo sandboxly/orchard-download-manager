@@ -221,6 +221,8 @@ kbd { display: inline-block; font-size: 0.8em; line-height: 1.5; padding: 0 6px;
 
 /* two family links side by side, stacked when narrow */
 .family-links { display: flex; flex-wrap: wrap; gap: 12px; }
+/* three family links: a row of their own under the text, wrapping when narrow */
+@media (min-width: 481px) { .family { grid-template-columns: auto minmax(0, 1fr); } .family .family-links { grid-column: 2; } }
 @media (max-width: 680px) { .family .family-links { grid-column: 1 / -1; } }
 
 /* privacy page */
